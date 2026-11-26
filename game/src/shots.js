@@ -25,12 +25,19 @@ export function applyShot(g, shot, seed) {
     g.sector = 3;
     startSortie(g);
     g.screen = 'play'; g.storm = true;
+    // v2.1 Fix 3: the 3 refit cards' modules are installed, so they must
+    // be VISIBLE on the aircraft (glowing twin tail, heated prop, tank).
+    g.modules = [MODULES[1], MODULES[2], MODULES[3]];
     g.t = 3.1;
     g.px = 1000; g.py = 300; g.heading = -0.12; g.speed = 240; g.throttle = 0.85;
     g.fuel = 61; g.wingTemp = 88; g.ice = 4; g.score = 3120; g.combo = 3;
     g.rings[0].taken = true; g.ringIdx = 1;
     g.message = 'MAGNETIC GALE — hold the gates!'; g.msgT = 10;
     g.dialogue = 2; g.dialogueT = 10;
+  } else if (shot === 'start') {
+    // v2.1: the full-bleed title poster is its own deterministic state,
+    // distinct from gameplay (?shot=play). Cover shot 1-play.jpg.
+    g.screen = 'title'; g.t = 1.6;
   } else if (shot === 'logbook') {
     g.screen = 'logbook'; g.victory = true; g.rank = 'S';
     g.score = 6840; g.sorties = 6; g.sector = 6; g.ringIdx = 23;

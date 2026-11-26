@@ -1,8 +1,51 @@
 // render.js — one job: draw every screen (title / play / refit / storm / logbook).
 import { PAL, W, H, INK, SECTORS, CREW, MODULES, PHENOMENA, FEATS, EVENTS, ALTITUDES, MODES, SET_BONUS } from './config.js';
-import { panel, darkPanel, text, label, drawAircraft, drawAurora, drawPeaks, drawCrew, poly, ellipse } from './art.js';
+import { panel, darkPanel, text, label, drawAircraft, drawAurora, drawPeaks, drawCrew, drawRefitArt, poly, ellipse } from './art.js';
 import { topBar, leftPanel, rightPanel, bottomInstruments, matrixBoxes, messageBanner, dialogueBox } from './hud.js';
 import { setBonus } from './flight.js';
+
+export function drawWindStreaks(ctx, g, n) {
+  // v2.1 Fix 2: deterministic speed lines — the plane must feel fast,
+  // never a floating sprite. g.t is fixed in every ?shot= state.
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const y = 90 + ((i * 97 + 40) % 520);
+    const x = (i * 211 + 60) % 1280;
+    const len = 70 + ((i * 53) % 130);
+    const drift = (g.t * 30 * (1 + (i % 3) * 0.4)) % 1280;
+    const sx = (x - drift + 1280) % 1280;
+    ctx.strokeStyle = 'rgba(234,246,251,' + (0.10 + (i % 3) * 0.05).toFixed(2) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx + len, y + (i % 2 ? 3 : -3)); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+export function drawNearPeaks(ctx) {
+  // v2.1 Fix 2: NEAR jagged ice mountains below the aircraft — two-tone
+  // faces (shadow left / lit right), white snow caps, valley shadows,
+  // layered ice fog. The low, fast Arctic-terrain layer.
+  for (let i = 0; i < 8; i++) {
+    const x0 = i * 175 - 60 + ((i * 53) % 50);
+    const px = x0 + 95, py = 720 - 140 - ((i * 67) % 90);
+    ctx.beginPath(); ctx.moveTo(x0, 720); ctx.lineTo(px, py); ctx.lineTo(px, 720); ctx.closePath();
+    ctx.fillStyle = '#3D5A78'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x0 + 190, 720); ctx.lineTo(px, 720); ctx.closePath();
+    ctx.fillStyle = '#7FA8C4'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 26, py + 44); ctx.lineTo(px + 10, py + 30); ctx.lineTo(px + 26, py + 44); ctx.closePath();
+    ctx.fillStyle = 'rgba(234,246,251,0.95)'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, 720); ctx.lineTo(px, py); ctx.lineTo(x0 + 190, 720); ctx.stroke();
+    // valley shadow in the gap to the next peak
+    const gx = x0 + 165;
+    ctx.fillStyle = 'rgba(11,17,32,0.4)';
+    ctx.beginPath(); ctx.moveTo(gx, 720); ctx.lineTo(gx + 44, 720); ctx.lineTo(gx + 22, 648); ctx.closePath(); ctx.fill();
+  }
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(234,246,251,' + (0.10 - i * 0.02).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(300 + i * 340, 640 + i * 28, 320, 20, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
 
 export function drawSky(ctx, g, world) {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
@@ -67,15 +110,26 @@ export function drawSnow(ctx, g, world, storm) {
     ctx.fillRect(x, y, s.s, s.s);
   }
   if (storm) {
-    // lightning arcs
+    // Lightning arcs — v2.1: purple-cyan two-tone, striking cloud tops
+    // BELOW the top bar, and never in the HDG readout column (x 320–520).
     const b = world.bolts[Math.floor(g.t * 0.7) % world.bolts.length];
+    // Never in the HDG readout column (x 320–520): shift the bolt to a
+    // safe column (x 980, clear of the nose and the right panel) instead
+    // of dropping it, so lightning is always visible in the storm shot.
+    let bx = b.x * 1280;
+    if (bx >= 320 && bx <= 520) bx = 980;
     if (Math.floor(g.t * 2) % 3 === 0) {
-      ctx.strokeStyle = 'rgba(217,70,239,0.9)'; ctx.lineWidth = 3;
-      ctx.beginPath();
-      let lx = b.x * 1280, ly = 0;
-      ctx.moveTo(lx, ly);
-      for (let k = 0; k < 6; k++) { lx += (Math.sin(k * 3 + b.ph) * 30); ly += 55; ctx.lineTo(lx, ly); }
-      ctx.stroke();
+      const trace = (color, lw) => {
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        let lx = bx, ly = 100;
+        ctx.moveTo(lx, ly);
+        for (let k = 0; k < 6; k++) { lx += (Math.sin(k * 3 + b.ph) * 30); ly += 48; ctx.lineTo(lx, ly); }
+        ctx.stroke();
+      };
+      trace('rgba(34,211,238,0.85)', 5);
+      trace('rgba(217,70,239,0.9)', 2.5);
+      trace('rgba(255,255,255,0.9)', 1);
     }
   }
 }
@@ -84,7 +138,7 @@ export function drawPlay(ctx, g, world) {
   drawSky(ctx, g, world);
   drawRings(ctx, g);
   const bank = Math.sin(g.t * 0.8) * 0.14 + (g.storm ? Math.sin(g.t * 2.1) * 0.12 : 0);
-  drawAircraft(ctx, 640, 330 + Math.sin(g.t * 1.3) * 8, 1.55, bank, g.t, { crew: 2 });
+  drawAircraft(ctx, 640, 330 + Math.sin(g.t * 1.3) * 8, 1.55, bank, g.t, { crew: 2, mods: g.modules.map((m) => m.id), iced: g.storm, storm: g.storm });
   drawSnow(ctx, g, world, g.storm);
   topBar(ctx, g);
   leftPanel(ctx, g);
@@ -97,46 +151,59 @@ export function drawPlay(ctx, g, world) {
 }
 
 export function drawTitle(ctx, g, world) {
+  // v2.1 Fix 2 — full-bleed scenic title poster (NOT a gameplay duplicate):
+  // thick glowing aurora curtain, big winged aircraft piercing it above
+  // jagged ice peaks, gold-white title across the top, PLAY + Saved
+  // Expeditions on the left, HOW TO PLAY on the right, all 8 real matrix
+  // boxes along the bottom. Deterministic ?shot=start state.
   drawSky(ctx, g, world);
-  // storm-climax poster aircraft, big
-  drawAircraft(ctx, 660, 300, 2.1, 0.22, g.t, { crew: 2 });
-  drawSnow(ctx, g, world, true);
-  // title card — solid, engraved
-  panel(ctx, 60, 40, 560, 210, PAL.cream);
-  text(ctx, 'STRATOSPHERE', 84, 108, 52, '#7C2D12');
-  text(ctx, 'OBSERVATORY', 84, 162, 52, '#B45309');
-  label(ctx, 'ARCTIC EXPEDITION AIRCRAFT · 1928 POLAR FLIGHT', 84, 192, 14, '#44403C');
-  label(ctx, 'Fly the aurora. Warm the wings. Bring them home.', 84, 222, 14, '#1C1917');
-  // saved-expedition list
-  panel(ctx, 60, 268, 560, 150, '#141B2C');
-  text(ctx, 'SAVED EXPEDITIONS', 84, 300, 16, PAL.gold);
-  const saves = ['EXPEDITION I — FROSTBITE RIDGE · RANK A', 'EXPEDITION II — AURORA REACH · RANK S', 'EXPEDITION III — MAGNETIC GALE · IN PROGRESS'];
-  saves.forEach((s, i) => label(ctx, '✦ ' + s, 84, 330 + i * 26, 14, '#F5EFE6'));
-  // HOW TO PLAY — 3 steps
-  panel(ctx, 60, 436, 560, 150, PAL.cream);
-  text(ctx, 'HOW TO PLAY', 84, 468, 18, '#7C2D12');
+  drawAurora(ctx, g.t, g.sector, 1.7); // second, thicker aurora pass
+  drawWindStreaks(ctx, g, 12); // v2.1 Fix 2: speed lines
+  drawNearPeaks(ctx); // v2.1 Fix 2: near ice mountains + valley fog
+  // big title — gold-white inked lettering with a FIRM outline (forced on)
+  text(ctx, 'STRATOSPHERE OBSERVATORY', 640, 78, 46, '#FDF3C4', 900, 'center', 'Georgia, serif', true);
+  label(ctx, 'ARCTIC EXPEDITION AIRCRAFT · 1928 POLAR FLIGHT', 640, 106, 14, PAL.ice, 'center');
+  // the aircraft, large, banking ~26° and piercing the aurora (Fix 2)
+  drawAircraft(ctx, 640, 360, 1.9, -0.45, g.t, { crew: 2, mods: g.modules.map((m) => m.id) });
+  drawSnow(ctx, g, world, false);
+  // left column: PLAY panel + Saved Expeditions
+  darkPanel(ctx, 40, 140, 330, 168);
+  text(ctx, 'PRESS ENTER TO FLY', 205, 188, 24, PAL.gold, 900, 'center');
+  label(ctx, '5-SECOND HOOK: gates ahead,', 205, 220, 13, '#F5EFE6', 'center');
+  label(ctx, 'storm behind — go.', 205, 240, 13, '#F5EFE6', 'center');
+  label(ctx, 'M — mute · P — pause · ?auto=1 autopilot', 205, 276, 12, '#94A3B8', 'center');
+  darkPanel(ctx, 40, 322, 330, 176);
+  text(ctx, 'SAVED EXPEDITIONS', 56, 354, 16, PAL.gold);
+  const saves = ['EXPEDITION I — FROSTBITE RIDGE · RANK A', 'EXPEDITION II — AURORA REACH · RANK S', 'EXPEDITION III — MAGNETIC GALE · ACTIVE'];
+  saves.forEach((s, i) => label(ctx, '✦ ' + s, 56, 384 + i * 26, 13, '#F5EFE6'));
+  label(ctx, 'Fly the aurora. Warm the wings.', 56, 470, 13, PAL.brass);
+  // right column: HOW TO PLAY (solid cream, clean dark-navy headers)
+  panel(ctx, 910, 140, 330, 216, PAL.cream);
+  text(ctx, 'HOW TO PLAY', 934, 172, 18, '#7C2D12');
   const steps = [
-    '1  ARROWS / WASD — steer & throttle · fly through the glowing gates',
-    '2  H — wing heat (ice vs overheat) · 1/2/3 — climb & dive layers',
-    '3  Clear the sector → PICK 1 OF 3 refit modules · 6 sectors to RANK S',
+    '1  ARROWS / WASD — steer &',
+    'throttle · fly the glowing gates',
+    '2  H — wing heat (ice vs overheat)',
+    '1 / 2 / 3 — climb & dive layers',
+    '3  Clear a sector → PICK 1 OF 3',
+    'refit modules · 6 sectors to RANK S',
   ];
-  steps.forEach((s, i) => label(ctx, s, 84, 496 + i * 26, 13, '#1C1917'));
-  // matrix boxes across the bottom
+  steps.forEach((s, i) => label(ctx, s, 934, 200 + i * 24, 13, '#1C1917'));
+  // v2.1 Fix 2: glowing green-gold aurora sky-gates in perspective,
+  // receding in a row ahead of the aircraft.
+  const gates = [[920, 440, 52], [1052, 478, 38], [1148, 508, 26]];
+  for (const [gx, gy, gr] of gates) {
+    ctx.save();
+    ctx.shadowColor = '#10B981'; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.ellipse(gx, gy, gr, gr * 0.82, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#10B981'; ctx.lineWidth = 7; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(gx, gy, gr - 11, (gr - 11) * 0.82, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#F2B705'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.restore();
+  }
+  label(ctx, 'TARGET RING AHEAD', 920, 372, 13, '#F5EFE6', 'center');
+  // 8 real matrix boxes across the bottom
   matrixBoxes(ctx, 60, 606, 1160);
-  // play prompt + right-side target ring
-  darkPanel(ctx, 700, 470, 520, 90);
-  text(ctx, 'PRESS ENTER TO FLY', 960, 512, 28, PAL.gold, 900, 'center');
-  label(ctx, '5-SECOND HOOK: gates ahead, storm behind — go.', 960, 542, 13, '#F5EFE6', 'center');
-  label(ctx, 'M — mute · P — pause · ?auto=1 autopilot', 960, 578, 12, '#94A3B8', 'center');
-  // glowing target ring ahead (criterion 1)
-  ctx.save();
-  ctx.translate(1080, 300);
-  ctx.beginPath(); ctx.ellipse(0, 0, 70, 58, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = '#10B981'; ctx.lineWidth = 8; ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(0, 0, 56, 46, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = '#D946EF'; ctx.lineWidth = 3; ctx.stroke();
-  ctx.restore();
-  label(ctx, 'TARGET RING AHEAD', 1080, 392, 13, '#F5EFE6', 'center');
 }
 
 export function drawRefit(ctx, g) {
@@ -144,35 +211,72 @@ export function drawRefit(ctx, g) {
   panel(ctx, 40, 24, 1200, 64, PAL.cream);
   text(ctx, 'AIRFRAME & ENGINE REFIT', 64, 62, 30, '#7C2D12');
   label(ctx, 'SECTOR ' + (g.sector - 1) + ' CLEAR · PICK 1 OF 3 — press 1, 2 or 3', 700, 60, 16, '#1C1917');
-  // cross-section aircraft, large, centre
-  drawAircraft(ctx, 640, 250, 1.9, 0, g.t, { crew: 2 });
-  label(ctx, 'CROSS-SECTION: TWIN-BOOM AIRFRAME · COPPER WINGS · BRASS COCKPIT', 640, 380, 13, '#F5EFE6', 'center');
-  // 3 module cards
+  // cross-section aircraft, centre
+  drawAircraft(ctx, 640, 212, 1.5, 0, g.t, { crew: 2 });
+  label(ctx, 'CROSS-SECTION: TWIN-BOOM AIRFRAME · COPPER WINGS · BRASS COCKPIT', 640, 322, 13, '#F5EFE6', 'center');
+  // 3 module cards — v2.1 Fix 3: a large mechanical illustration in the
+  // middle of each card (twin tail fins / heated propeller / fuel tank).
   g.draft.forEach((m, i) => {
     const x = 60 + i * 400;
-    panel(ctx, x, 400, 380, 150, PAL.cream);
-    text(ctx, (i + 1) + ' · ' + m.name, x + 20, 440, 17, '#7C2D12');
-    label(ctx, 'SET: ' + m.set, x + 20, 468, 13, '#B45309');
-    label(ctx, m.fx, x + 20, 494, 13, '#1C1917');
-    label(ctx, m.desc, x + 20, 520, 12, '#44403C');
+    panel(ctx, x, 340, 380, 225, PAL.cream);
+    text(ctx, (i + 1) + ' · ' + m.name, x + 20, 374, 17, '#7C2D12');
+    label(ctx, 'SET: ' + m.set, x + 20, 398, 13, '#B45309');
+    drawRefitArt(ctx, m.id, x + 190, 460, 1.0);
+    label(ctx, m.fx, x + 20, 520, 13, '#1C1917');
+    const words = m.desc.split(' ');
+    const lines = [''];
+    for (const w of words) {
+      if ((lines[lines.length - 1] + ' ' + w).trim().length > 46) lines.push(w);
+      else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim();
+    }
+    lines.slice(0, 2).forEach((ln, li) => label(ctx, ln, x + 20, 542 + li * 17, 11, '#44403C'));
   });
   // Set synergy row — solid
   const sets = setBonus({ modules: [...g.modules, ...(g.draft[0] ? [g.draft[0]] : [])] });
-  panel(ctx, 60, 566, 1160, 90, '#141B2C');
-  text(ctx, 'SET SYNERGY', 84, 600, 16, PAL.gold);
+  panel(ctx, 60, 575, 1160, 85, '#141B2C');
+  text(ctx, 'SET SYNERGY', 84, 606, 16, PAL.gold);
   const owned = {};
   for (const m of g.modules) owned[m.set] = (owned[m.set] || 0) + 1;
   const rows = Object.keys(SET_BONUS).map((s) => s + ' ' + (owned[s] || 0) + '/2 — ' + SET_BONUS[s]);
-  label(ctx, rows.slice(0, 2).join('   ·   '), 84, 626, 12, '#F5EFE6');
-  label(ctx, rows.slice(2).join('   ·   '), 84, 646, 12, '#F5EFE6');
-  label(ctx, 'SCORE ' + g.score + ' · MODULES ' + g.modules.length + '/18', 1000, 626, 13, PAL.gold);
+  label(ctx, rows.slice(0, 2).join('   ·   '), 84, 630, 12, '#F5EFE6');
+  label(ctx, rows.slice(2).join('   ·   '), 84, 648, 12, '#F5EFE6');
+  label(ctx, 'SCORE ' + g.score + ' · MODULES ' + g.modules.length + '/18', 1000, 630, 13, PAL.gold);
 }
 
 export function drawStorm(ctx, g, world) {
   // Shot 3: magnetic gale climax — cockpit-first, crew behind glass
   drawSky(ctx, g, world);
+  drawAurora(ctx, g.t, g.sector, 1.6); // v2.1: sharper, thicker aurora glow
+  drawWindStreaks(ctx, g, 18); // v2.1 Fix 2: speed lines
+  drawNearPeaks(ctx); // v2.1 Fix 2: near ice mountains + valley fog
   drawRings(ctx, g);
-  drawAircraft(ctx, 640, 320, 1.9, 0.38, g.t, { crew: 3 });
+  // v2.1 Fix 2: glowing green-gold sky-gates in perspective, receding
+  // ahead of the aircraft, with the AURORA LOCK ×12 combo tag.
+  for (const [gx, gy, gr] of [[930, 238, 46], [1000, 195, 30], [1028, 168, 18]]) {
+    ctx.save();
+    ctx.shadowColor = '#10B981'; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.ellipse(gx, gy, gr, gr * 0.82, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#10B981'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(gx, gy, gr - 11, (gr - 11) * 0.82, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#F2B705'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.restore();
+  }
+  // Combo tag above the wing, clear of the banner, the wing and the bolt.
+  text(ctx, 'AURORA LOCK ×12', 620, 165, 13, PAL.gold, 900, 'center');
+  // v2.1 Fix 3: iced wings/glass, heater flame, visible installed refits
+  drawAircraft(ctx, 640, 320, 1.9, -0.5, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true });
+  // v2.1: white smoke trails off the wingtips + orange engine sparks
+  // from the propellers (deterministic positions from the fixed shot time).
+  for (let i = 0; i < 8; i++) {
+    const sx = 640 - 300 - i * 42, sy = 300 + Math.sin(i * 1.3 + g.t) * 14 + i * 3;
+    ctx.fillStyle = 'rgba(234,246,251,' + (0.55 - i * 0.055).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(sx, sy, 26 - i * 1.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 10; i++) {
+    const px = 902 + Math.sin(i * 2.7 + g.t * 3) * 26, py = 320 + Math.cos(i * 1.9 + g.t * 2) * 22;
+    ctx.fillStyle = i % 2 ? '#FDBA74' : '#FDE68A';
+    ctx.beginPath(); ctx.arc(px, py, i % 3 === 0 ? 3 : 2, 0, Math.PI * 2); ctx.fill();
+  }
   drawSnow(ctx, g, world, true);
   // solid cream side panels with dark frames
   panel(ctx, 12, 92, 220, 260, PAL.cream);

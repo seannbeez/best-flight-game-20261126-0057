@@ -49,49 +49,98 @@ export function rightPanel(ctx, g) {
 }
 
 export function bottomInstruments(ctx, g) {
-  // 4 instrument close-ups along the bottom edge
+  // 4 instrument close-ups along the bottom edge — v2.1: real dials with
+  // tick marks, needles and zone colouring, not flat bars.
   const y = 596, h = 112;
-  // Fuel manometer
+  // Fuel manometer — bar + 10% ticks + needle marker at the level.
   panel(ctx, 12, y, 300, h, PAL.cream);
   text(ctx, 'FUEL MANOMETER', 26, y + 26, 14, '#7C2D12');
   ctx.fillStyle = '#2A2F3A'; ctx.fillRect(26, y + 44, 260, 18);
   ctx.fillStyle = g.fuel > 25 ? '#10B981' : '#E5484D';
   ctx.fillRect(26, y + 44, 260 * (g.fuel / g.fuelMax), 18);
   ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.strokeRect(26, y + 44, 260, 18);
-  label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 26, y + 86, 13, '#1C1917');
+  for (let i = 0; i <= 10; i++) {
+    const tx = 26 + i * 26;
+    ctx.strokeStyle = '#1C1917'; ctx.lineWidth = i % 5 === 0 ? 2.5 : 1.5;
+    ctx.beginPath(); ctx.moveTo(tx, y + 40); ctx.lineTo(tx, y + 66); ctx.stroke();
+  }
+  const fx = 26 + 260 * (g.fuel / g.fuelMax);
+  ctx.fillStyle = '#1C1917';
+  ctx.beginPath(); ctx.moveTo(fx - 6, y + 38); ctx.lineTo(fx + 6, y + 38); ctx.lineTo(fx, y + 46); ctx.closePath(); ctx.fill();
+  label(ctx, 'E', 26, y + 80, 10, '#44403C');
+  label(ctx, 'F', 278, y + 80, 10, '#44403C');
+  label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 40, y + 86, 13, '#1C1917');
   label(ctx, 'BURN ' + (0.9 + g.throttle * 2.4).toFixed(1) + '/s', 180, y + 86, 12, '#44403C');
-  // Artificial horizon & compass
+  // Artificial horizon & compass — pitch ladder, bank needle, tick ring.
   panel(ctx, 324, y, 300, h, PAL.cream);
   text(ctx, 'HORIZON & COMPASS', 338, y + 26, 14, '#7C2D12');
+  const bankDeg = Math.round(Math.sin(g.t) * 12);
   ctx.save();
   ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.clip();
   ctx.fillStyle = '#7FB8D8'; ctx.fillRect(350, y + 38, 60, 30);
   ctx.fillStyle = '#B45309'; ctx.fillRect(350, y + 68, 60, 30);
+  // pitch ladder lines inside the ball
+  ctx.strokeStyle = 'rgba(28,25,23,0.7)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(358, y + 52); ctx.lineTo(402, y + 52); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(362, y + 84); ctx.lineTo(398, y + 84); ctx.stroke();
   ctx.restore();
   ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2.5; ctx.stroke();
+  // tick ring (N/E/S/W) around the ball
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    ctx.strokeStyle = '#1C1917'; ctx.lineWidth = i % 2 === 0 ? 2.5 : 1.5;
+    ctx.beginPath();
+    ctx.moveTo(380 + Math.cos(a) * 30, y + 68 + Math.sin(a) * 30);
+    ctx.lineTo(380 + Math.cos(a) * 35, y + 68 + Math.sin(a) * 35);
+    ctx.stroke();
+  }
+  // bank needle at the top of the ball
+  ctx.save();
+  ctx.translate(380, y + 68); ctx.rotate(bankDeg * Math.PI / 180);
+  ctx.fillStyle = '#E5484D';
+  ctx.beginPath(); ctx.moveTo(-5, -30); ctx.lineTo(5, -30); ctx.lineTo(0, -38); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // level wings line
   ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(360, y + 68); ctx.lineTo(400, y + 68); ctx.stroke();
   const hdg = Math.round(((g.heading * 57.2958) % 360 + 360) % 360);
   label(ctx, 'HDG ' + String(hdg).padStart(3, '0') + '°', 430, y + 62, 16, '#1C1917');
-  label(ctx, 'BANK ' + Math.round(Math.sin(g.t) * 12) + '°', 430, y + 88, 12, '#44403C');
-  // Wing temperature
+  label(ctx, 'BANK ' + bankDeg + '°', 430, y + 88, 12, '#44403C');
+  // Wing temperature — zone-coloured bar + ticks + needle.
   panel(ctx, 636, y, 300, h, PAL.cream);
   text(ctx, 'WING TEMPERATURE', 650, y + 26, 14, '#7C2D12');
   ctx.fillStyle = '#2A2F3A'; ctx.fillRect(650, y + 44, 260, 18);
+  ctx.fillStyle = '#38BDF8'; ctx.fillRect(650, y + 44, 260 * 0.25, 18);
+  ctx.fillStyle = '#D97706'; ctx.fillRect(650 + 260 * 0.25, y + 44, 260 * 0.5, 18);
+  ctx.fillStyle = '#E5484D'; ctx.fillRect(650 + 260 * 0.75, y + 44, 260 * 0.25, 18);
   const wt = Math.max(0, Math.min(1, g.wingTemp / 115));
-  ctx.fillStyle = g.wingTemp < 15 ? '#38BDF8' : g.wingTemp > 90 ? '#E5484D' : '#D97706';
-  ctx.fillRect(650, y + 44, 260 * wt, 18);
+  ctx.strokeStyle = 'rgba(245,239,230,0.9)'; ctx.lineWidth = 2;
+  ctx.strokeRect(650 + 260 * wt - 1, y + 42, 3, 22);
   ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.strokeRect(650, y + 44, 260, 18);
-  label(ctx, Math.round(g.wingTemp) + '°C  ·  ICE ' + Math.round(g.ice) + '%', 650, y + 86, 13, '#1C1917');
+  for (let i = 0; i <= 4; i++) {
+    const tx = 650 + i * 65;
+    ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tx, y + 40); ctx.lineTo(tx, y + 66); ctx.stroke();
+  }
+  const wx = 650 + 260 * wt;
+  ctx.fillStyle = '#1C1917';
+  ctx.beginPath(); ctx.moveTo(wx - 6, y + 38); ctx.lineTo(wx + 6, y + 38); ctx.lineTo(wx, y + 46); ctx.closePath(); ctx.fill();
+  label(ctx, Math.round(g.wingTemp) + '°C  ·  ICE ' + Math.round(g.ice) + '%', 668, y + 86, 13, '#1C1917');
   label(ctx, '[H] HEAT  [1/2/3] LAYER', 790, y + 86, 11, '#44403C');
-  // Aurora lock stamp
+  // Aurora lock stamp — v2.1: stamp shrunk and moved up so it clears both
+  // the header and the HULL line; 12 lock dots sit on their own row.
   panel(ctx, 948, y, 320, h, PAL.cream);
   text(ctx, 'AURORA LOCK', 962, y + 26, 14, '#7C2D12');
   ctx.save();
-  ctx.translate(1108, y + 52); ctx.rotate(-0.12);
-  ctx.strokeStyle = '#B45309'; ctx.lineWidth = 3; ctx.strokeRect(-92, -24, 184, 48);
-  label(ctx, 'AURORA LOCK ×12', -80, 6, 18, '#B45309');
+  ctx.translate(1108, y + 54); ctx.rotate(-0.1);
+  ctx.strokeStyle = '#B45309'; ctx.lineWidth = 2.5; ctx.strokeRect(-84, -19, 168, 38);
+  label(ctx, 'AURORA LOCK ×12', -76, 5, 15, '#B45309');
   ctx.restore();
-  label(ctx, 'HULL ' + Math.round(g.hull) + '%  ·  SAMPLES ' + g.samples, 962, y + 92, 12, '#1C1917');
+  for (let i = 0; i < 12; i++) {
+    ctx.beginPath(); ctx.arc(966 + i * 10, y + 86, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#10B981'; ctx.fill();
+    ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  label(ctx, 'HULL ' + Math.round(g.hull) + '%  ·  SAMPLES ' + g.samples, 962, y + 104, 12, '#1C1917');
 }
 
 export function matrixBoxes(ctx, x, y, w) {
