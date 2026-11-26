@@ -109,7 +109,31 @@ export function drawSnow(ctx, g, world, storm) {
     const y = ((s.y * 720 + g.t * s.v * 0.9) % 720 + 720) % 720;
     ctx.fillRect(x, y, s.s, s.s);
   }
-  if (storm) {
+  // v2.2 Fix 2: climax lightning — TWO bright magenta-cyan bolts, drawn
+  // every frozen frame: one tight by the wingtip (x 880), one striking
+  // the jagged ridge below (x 300). Both stay clear of the HDG readout
+  // column (x 320–520 at the top bar; the ridge bolt zigzags to 330 max
+  // and sits far below the top bar, the wingtip bolt is at x 880).
+  if (g.climax) {
+    const bolt = (bx, top, bottom, ph) => {
+      const trace = (color, lw) => {
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        let lx = bx, ly = top;
+        ctx.moveTo(lx, ly);
+        for (let k = 0; k < 7; k++) { lx += Math.sin(k * 3 + ph) * 28; ly += (bottom - top) / 7; ctx.lineTo(lx, ly); }
+        ctx.stroke();
+      };
+      ctx.save(); ctx.shadowColor = '#D946EF'; ctx.shadowBlur = 14;
+      trace('rgba(34,211,238,0.9)', 6);
+      trace('rgba(217,70,239,0.95)', 3);
+      trace('rgba(255,255,255,0.95)', 1.2);
+      ctx.restore();
+    };
+    bolt(880, 96, 400, 1.2);
+    bolt(300, 300, 640, 4.1);
+  }
+  if (storm && !g.climax) {
     // Lightning arcs — v2.1: purple-cyan two-tone, striking cloud tops
     // BELOW the top bar, and never in the HDG readout column (x 320–520).
     const b = world.bolts[Math.floor(g.t * 0.7) % world.bolts.length];
@@ -162,7 +186,13 @@ export function drawTitle(ctx, g, world) {
   drawNearPeaks(ctx); // v2.1 Fix 2: near ice mountains + valley fog
   // big title — gold-white inked lettering with a FIRM outline (forced on)
   text(ctx, 'STRATOSPHERE OBSERVATORY', 640, 78, 46, '#FDF3C4', 900, 'center', 'Georgia, serif', true);
-  label(ctx, 'ARCTIC EXPEDITION AIRCRAFT · 1928 POLAR FLIGHT', 640, 106, 14, PAL.ice, 'center');
+  // v2.2 Fix 1: subtitle lifted off the brightest aurora band — a solid
+  // dark navy strip behind it, shrunk to 12px and nudged up, so "ARCTIC"
+  // stays fully legible and clear of the PRESS ENTER panel below.
+  ctx.fillStyle = 'rgba(11,17,32,0.88)';
+  ctx.fillRect(408, 86, 464, 24);
+  ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1.5; ctx.strokeRect(408, 86, 464, 24);
+  label(ctx, 'ARCTIC EXPEDITION AIRCRAFT · 1928 POLAR FLIGHT', 640, 102, 12, PAL.ice, 'center');
   // the aircraft, large, banking ~26° and piercing the aurora (Fix 2)
   drawAircraft(ctx, 640, 360, 1.9, -0.45, g.t, { crew: 2, mods: g.modules.map((m) => m.id) });
   drawSnow(ctx, g, world, false);
@@ -247,12 +277,22 @@ export function drawStorm(ctx, g, world) {
   // Shot 3: magnetic gale climax — cockpit-first, crew behind glass
   drawSky(ctx, g, world);
   drawAurora(ctx, g.t, g.sector, 1.6); // v2.1: sharper, thicker aurora glow
-  drawWindStreaks(ctx, g, 18); // v2.1 Fix 2: speed lines
+  drawWindStreaks(ctx, g, 30); // v2.2: denser speed lines for the climax
+  // v2.2 Fix 2: fast white storm wind lines streaking across the screen.
+  ctx.save();
+  for (let i = 0; i < 14; i++) {
+    const wy = 110 + ((i * 173 + 60) % 460);
+    const wx = (i * 307 + 40) % 1280;
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.28 + (i % 3) * 0.08).toFixed(2) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 190, wy + 14); ctx.stroke();
+  }
+  ctx.restore();
   drawNearPeaks(ctx); // v2.1 Fix 2: near ice mountains + valley fog
   drawRings(ctx, g);
-  // v2.1 Fix 2: glowing green-gold sky-gates in perspective, receding
-  // ahead of the aircraft, with the AURORA LOCK ×12 combo tag.
-  for (const [gx, gy, gr] of [[930, 238, 46], [1000, 195, 30], [1028, 168, 18]]) {
+  // v2.2 Fix 2: 3 glowing aurora rings top-right, nearly missed by the
+  // crosswind push — tucked into the free sky left of the crew panel.
+  for (const [gx, gy, gr] of [[948, 178, 44], [1010, 130, 30], [1032, 98, 16]]) {
     ctx.save();
     ctx.shadowColor = '#10B981'; ctx.shadowBlur = 16;
     ctx.beginPath(); ctx.ellipse(gx, gy, gr, gr * 0.82, 0, 0, Math.PI * 2);
@@ -261,10 +301,10 @@ export function drawStorm(ctx, g, world) {
     ctx.strokeStyle = '#F2B705'; ctx.lineWidth = 3; ctx.stroke();
     ctx.restore();
   }
-  // Combo tag above the wing, clear of the banner, the wing and the bolt.
-  text(ctx, 'AURORA LOCK ×12', 620, 165, 13, PAL.gold, 900, 'center');
-  // v2.1 Fix 3: iced wings/glass, heater flame, visible installed refits
-  drawAircraft(ctx, 640, 320, 1.9, -0.5, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true });
+  // v2.2 Fix 2: the small duplicate "AURORA LOCK ×12" that sat here at
+  // top centre is REMOVED — only the clean stamp at bottom-right shows.
+  // v2.2 Fix 2: sharp 40° banking (-0.70 rad) + climax ice / heat visuals.
+  drawAircraft(ctx, 640, 320, 1.9, -0.70, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true });
   // v2.1: white smoke trails off the wingtips + orange engine sparks
   // from the propellers (deterministic positions from the fixed shot time).
   for (let i = 0; i < 8; i++) {
@@ -353,15 +393,33 @@ export function drawLogbook(ctx, g) {
     label(ctx, (got ? '★ ' : '○ ') + f, x + 26, y, 12, got ? '#1C1917' : '#78716C');
   });
   // atmospheric samples
+  // v2.2 Fix 3: 8 copper-capped glass sample tubes with glowing aurora
+  // gas inside — detailed expedition artifacts, not plain colour blocks.
   text(ctx, 'ATMOSPHERIC SAMPLES', 670, 460, 15, '#7C2D12');
   for (let i = 0; i < 8; i++) {
     const x = 690 + i * 58;
-    ctx.fillStyle = i < 5 ? '#10B981' : '#D946EF';
-    ctx.fillRect(x, 480, 34, 52);
-    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x, 480, 34, 52);
+    const gas = i < 5 ? '#10B981' : '#D946EF';
+    // glowing gas column inside the glass
+    ctx.save(); ctx.shadowColor = gas; ctx.shadowBlur = 12;
+    ctx.fillStyle = gas; ctx.fillRect(x + 6, 494, 22, 34); ctx.restore();
+    // glass tube body (translucent white over the gas) + ink outline
+    ctx.fillStyle = 'rgba(245,239,230,0.28)'; ctx.fillRect(x + 2, 488, 30, 44);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x + 2, 488, 30, 44);
+    // gas bubbles rising in the tube
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(x + 14, 502, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 22, 516, 2, 0, Math.PI * 2); ctx.fill();
+    // glass highlight + copper cap with rivets
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(x + 6, 490, 4, 40);
+    ctx.fillStyle = '#B45309'; ctx.fillRect(x + 2, 478, 30, 10);
+    ctx.fillStyle = 'rgba(255,214,130,0.8)'; ctx.fillRect(x + 2, 478, 30, 3);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(x + 2, 478, 30, 10);
+    ctx.fillStyle = '#1C1917';
+    ctx.beginPath(); ctx.arc(x + 9, 483, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 25, 483, 1.6, 0, Math.PI * 2); ctx.fill();
     label(ctx, 'S' + (i + 1), x + 17, 556, 11, '#1C1917', 'center');
   }
-  label(ctx, 'Samples: aurora green ×5 · magnetic magenta ×3 — sealed in copper vials.', 670, 586, 12, '#44403C');
+  label(ctx, 'Samples: aurora green ×5 · magnetic magenta ×3 — copper-capped glass tubes.', 670, 586, 12, '#44403C');
   label(ctx, 'PRESS ENTER TO FLY AGAIN', 670, 624, 14, '#7C2D12');
   label(ctx, 'Sectors cleared ' + g.sorties + ' · Rings flown ' + g.ringIdx + ' · Feats ' + g.feats.length + '/20', 90, 624, 12, '#44403C');
 }

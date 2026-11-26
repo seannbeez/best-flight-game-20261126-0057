@@ -69,12 +69,20 @@ export function bottomInstruments(ctx, g) {
   ctx.beginPath(); ctx.moveTo(fx - 6, y + 38); ctx.lineTo(fx + 6, y + 38); ctx.lineTo(fx, y + 46); ctx.closePath(); ctx.fill();
   label(ctx, 'E', 26, y + 80, 10, '#44403C');
   label(ctx, 'F', 278, y + 80, 10, '#44403C');
-  label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 40, y + 86, 13, '#1C1917');
-  label(ctx, 'BURN ' + (0.9 + g.throttle * 2.4).toFixed(1) + '/s', 180, y + 86, 12, '#44403C');
+  // v2.2 Fix 2 (climax): red LOW FUEL warning instead of the plain level.
+  if (g.climax) {
+    ctx.save(); ctx.shadowColor = '#E5484D'; ctx.shadowBlur = 10;
+    ctx.strokeStyle = '#E5484D'; ctx.lineWidth = 2.5; ctx.strokeRect(26, y + 44, 260, 18); ctx.restore();
+    label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL · LOW FUEL', 40, y + 86, 13, '#E5484D');
+  } else {
+    label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 40, y + 86, 13, '#1C1917');
+    label(ctx, 'BURN ' + (0.9 + g.throttle * 2.4).toFixed(1) + '/s', 180, y + 86, 12, '#44403C');
+  }
   // Artificial horizon & compass — pitch ladder, bank needle, tick ring.
   panel(ctx, 324, y, 300, h, PAL.cream);
   text(ctx, 'HORIZON & COMPASS', 338, y + 26, 14, '#7C2D12');
-  const bankDeg = Math.round(Math.sin(g.t) * 12);
+  // v2.2 Fix 2 (climax): the horizon reads a sharp 42° bank, not ~0°.
+  const bankDeg = g.climax ? 42 : Math.round(Math.sin(g.t) * 12);
   ctx.save();
   ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.clip();
   ctx.fillStyle = '#7FB8D8'; ctx.fillRect(350, y + 38, 60, 30);
@@ -100,11 +108,14 @@ export function bottomInstruments(ctx, g) {
   ctx.fillStyle = '#E5484D';
   ctx.beginPath(); ctx.moveTo(-5, -30); ctx.lineTo(5, -30); ctx.lineTo(0, -38); ctx.closePath(); ctx.fill();
   ctx.restore();
-  // level wings line
-  ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(360, y + 68); ctx.lineTo(400, y + 68); ctx.stroke();
+  // level wings line — v2.2 climax: tilted sharply with the 42° bank.
+  ctx.save();
+  ctx.translate(380, y + 68); ctx.rotate(g.climax ? -42 * Math.PI / 180 : 0);
+  ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.stroke();
+  ctx.restore();
   const hdg = Math.round(((g.heading * 57.2958) % 360 + 360) % 360);
   label(ctx, 'HDG ' + String(hdg).padStart(3, '0') + '°', 430, y + 62, 16, '#1C1917');
-  label(ctx, 'BANK ' + bankDeg + '°', 430, y + 88, 12, '#44403C');
+  label(ctx, 'BANK ' + bankDeg + '°', 430, y + 88, 12, g.climax ? '#E5484D' : '#44403C');
   // Wing temperature — zone-coloured bar + ticks + needle.
   panel(ctx, 636, y, 300, h, PAL.cream);
   text(ctx, 'WING TEMPERATURE', 650, y + 26, 14, '#7C2D12');
@@ -125,7 +136,14 @@ export function bottomInstruments(ctx, g) {
   ctx.fillStyle = '#1C1917';
   ctx.beginPath(); ctx.moveTo(wx - 6, y + 38); ctx.lineTo(wx + 6, y + 38); ctx.lineTo(wx, y + 46); ctx.closePath(); ctx.fill();
   label(ctx, Math.round(g.wingTemp) + '°C  ·  ICE ' + Math.round(g.ice) + '%', 668, y + 86, 13, '#1C1917');
-  label(ctx, '[H] HEAT  [1/2/3] LAYER', 790, y + 86, 11, '#44403C');
+  // v2.2 Fix 2 (climax): wing bar glows red-orange, ICE BUILDING! warning.
+  if (g.climax) {
+    ctx.save(); ctx.shadowColor = '#EA580C'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#EA580C'; ctx.lineWidth = 2.5; ctx.strokeRect(650, y + 44, 260, 18); ctx.restore();
+    label(ctx, 'ICE BUILDING!', 790, y + 86, 11, '#EA580C');
+  } else {
+    label(ctx, '[H] HEAT  [1/2/3] LAYER', 790, y + 86, 11, '#44403C');
+  }
   // Aurora lock stamp — v2.1: stamp shrunk and moved up so it clears both
   // the header and the HULL line; 12 lock dots sit on their own row.
   panel(ctx, 948, y, 320, h, PAL.cream);
@@ -169,6 +187,11 @@ export function dialogueBox(ctx, g) {
   const c = CREW[g.dialogue % CREW.length];
   panel(ctx, 240, 470, 800, 78, PAL.cream);
   drawCrew(ctx, c, 282, 509, 28);
+  // v2.2 Fix 2 (climax): Kobayashi's exact panicked line. The name stays
+  // clean bold Dark Navy/Terracotta on cream — no black stroke artifact.
+  const line = (g.climax && c.name.startsWith('MET.'))
+    ? 'Heavy rime ice on both wings — hold [H] heat now or we stall into the ridge!'
+    : c.line;
   text(ctx, c.name + ' — ' + c.role.toUpperCase(), 326, 500, 14, '#7C2D12');
-  label(ctx, '“' + c.line + '”', 326, 526, 15, '#1C1917');
+  label(ctx, '“' + line + '”', 326, 526, 15, '#1C1917');
 }

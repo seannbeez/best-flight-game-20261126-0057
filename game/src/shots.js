@@ -30,7 +30,8 @@ export function applyShot(g, shot, seed) {
     g.modules = [MODULES[1], MODULES[2], MODULES[3]];
     g.t = 3.1;
     g.px = 1000; g.py = 300; g.heading = -0.12; g.speed = 240; g.throttle = 0.85;
-    g.fuel = 61; g.wingTemp = 88; g.ice = 4; g.score = 3120; g.combo = 3;
+    // v2.2 Fix 2 (climax): critical state — 24 GAL fuel, cold icing wings.
+    g.fuel = 24; g.wingTemp = 18; g.ice = 62; g.score = 3120; g.combo = 3; g.climax = true;
     g.rings[0].taken = true; g.ringIdx = 1;
     g.message = 'MAGNETIC GALE — hold the gates!'; g.msgT = 10;
     g.dialogue = 2; g.dialogueT = 10;

@@ -14,7 +14,7 @@ export function newGame(seed = 1) {
     sectorScore: 0, sorties: 0, damageTaken: 0, fuelUsed: 0,
     victory: false, defeat: false, rank: '—', beaconHold: 0,
     dialogue: 0, dialogueT: 0, phenActive: 0, auroraLock: 0,
-    auto: false, clearedSector1: false, storm: false,
+    auto: false, clearedSector1: false, storm: false, climax: false,
   };
 }
 export function hasModule(g, id) { return g.modules.some((m) => m.id === id); }

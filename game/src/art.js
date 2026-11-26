@@ -188,6 +188,45 @@ export function drawAircraft(ctx, cx, cy, s, bank, t, opts = {}) {
       ctx.restore();
     }
   }
+  // v2.2 Fix 2 (climax): THICK blue-white rime ice clinging along the
+  // leading edges of both wings, plus orange [H] HEAT glow melting the
+  // wing roots — drawn on top of the small v2.1 crystals.
+  if (opts.climax) {
+    // thick ice slab along the upper-wing leading edge
+    ctx.beginPath();
+    ctx.moveTo(-62, -6); ctx.lineTo(28, -62); ctx.lineTo(122, -54); ctx.lineTo(118, -42);
+    ctx.lineTo(30, -48); ctx.lineTo(-52, 4); ctx.closePath();
+    ctx.fillStyle = '#DBEAFE'; ctx.fill();
+    ctx.fillStyle = 'rgba(56,189,248,0.55)'; ctx.fillRect(-40, -52, 150, 6);
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 2; ctx.stroke();
+    // jagged crystal teeth hanging off that leading edge
+    ctx.fillStyle = '#EAF6FB';
+    for (let k = 0; k < 7; k++) {
+      const tx = -48 + k * 26, ty = -52 + k * 1.5;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + 9, ty + 16); ctx.lineTo(tx + 18, ty); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    // thick ice along the lower-wing leading edge
+    ctx.beginPath();
+    ctx.moveTo(-32, 16); ctx.lineTo(12, 54); ctx.lineTo(74, 62); ctx.lineTo(70, 50);
+    ctx.lineTo(10, 42); ctx.lineTo(-24, 24); ctx.closePath();
+    ctx.fillStyle = '#DBEAFE'; ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 2; ctx.stroke();
+    // orange heat glow starting to melt the wing roots
+    ctx.save();
+    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 18;
+    ctx.fillStyle = 'rgba(249,115,22,0.75)';
+    ctx.beginPath(); ctx.ellipse(-18, -8, 22, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-8, 16, 18, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#FDE68A';
+    ctx.beginPath(); ctx.ellipse(-18, -8, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    // melt drips running off the wing root
+    ctx.strokeStyle = 'rgba(56,189,248,0.9)'; ctx.lineWidth = 2;
+    for (const [dx, dy] of [[-26, 2], [-12, 6], [2, 10]]) {
+      ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + 2, dy + 12); ctx.stroke();
+    }
+  }
   // nose propellers (2, spinning blur)
   const spin = t * 14;
   for (const px of [138]) {
@@ -210,6 +249,23 @@ export function drawAircraft(ctx, cx, cy, s, bank, t, opts = {}) {
     ctx.beginPath(); ctx.arc(0, 0, 32, 0, Math.PI * 2);
     ctx.strokeStyle = '#FDBA74'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.stroke();
     ctx.restore();
+  }
+  // v2.2 Fix 2 (climax): thick rime ice clinging to the propeller disc —
+  // crystal clusters at the blade tips, on top of the heated-prop glow.
+  if (opts.climax) {
+    for (const [ix, iy] of [[138, -40], [170, -14], [170, 16], [138, 40], [106, 12], [106, -12]]) {
+      ctx.save(); ctx.translate(ix, iy);
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3, r = k % 2 ? 4 : 9;
+        if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#DBEAFE'; ctx.fill();
+      ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.restore();
+    }
   }
   // wingtip lights
   ctx.beginPath(); ctx.arc(112, -52, 5, 0, Math.PI * 2); ctx.fillStyle = '#10B981'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
