@@ -1,0 +1,125 @@
+// hud.js — one job: HUD panels (top bar, side panels, bottom instruments, matrix).
+import { PAL, SECTORS, CREW, MODULES, PHENOMENA, FEATS, EVENTS, ALTITUDES, MODES, SET_BONUS } from './config.js';
+import { panel, darkPanel, text, label, drawCrew } from './art.js';
+import { setBonus } from './flight.js';
+
+export function topBar(ctx, g) {
+  darkPanel(ctx, 0, 0, 1280, 56);
+  const sec = SECTORS[g.sector - 1];
+  text(ctx, 'STRATOSPHERE OBSERVATORY', 16, 36, 21, PAL.brass);
+  label(ctx, 'SECTOR ' + g.sector + '/6 · ' + sec.name + ' · ' + g.mode.toUpperCase(), 400, 34, 15, PAL.ice);
+  label(ctx, 'SCORE ' + g.score.toLocaleString(), 900, 34, 17, '#F5EFE6');
+  label(ctx, 'RANK ' + g.rank, 1150, 34, 17, PAL.gold);
+  // ALT / SPD / HDG numerals — Criterion 1
+  label(ctx, 'ALT ' + Math.round(ALTITUDES[g.altitude].ft.replace(/,/g, '').replace(' FT', '')) + ' FT', 16, 78, 15, '#F5EFE6');
+  label(ctx, 'SPD ' + Math.round(g.speed) + ' KT', 190, 78, 15, '#F5EFE6');
+  label(ctx, 'HDG ' + String(Math.round(((g.heading * 57.2958) % 360 + 360) % 360)).padStart(3, '0') + '°', 360, 78, 15, '#F5EFE6');
+  label(ctx, 'THR ' + Math.round(g.throttle * 100) + '%', 500, 78, 15, PAL.brass);
+}
+
+export function leftPanel(ctx, g) {
+  panel(ctx, 12, 92, 218, 280, PAL.cream);
+  text(ctx, 'CREW · 6', 26, 122, 16, '#7C2D12');
+  CREW.forEach((c, i) => {
+    const y = 142 + i * 38;
+    drawCrew(ctx, c, 48, y, 15);
+    label(ctx, c.name.split(' ')[1] || c.name, 70, y - 2, 12, '#1C1917');
+    label(ctx, c.role.toUpperCase(), 70, y + 13, 10, '#7C2D12');
+  });
+  panel(ctx, 12, 384, 218, 108, PAL.cream);
+  text(ctx, 'MODULES ' + g.modules.length + '/18', 26, 414, 16, '#7C2D12');
+  if (g.modules.length === 0) label(ctx, 'No modules yet —', 26, 438, 12, '#44403C');
+  if (g.modules.length === 0) label(ctx, 'clear a sector to draft.', 26, 456, 12, '#44403C');
+  g.modules.slice(0, 3).forEach((m, i) => label(ctx, '▸ ' + m.name, 26, 438 + i * 18, 11, '#1C1917'));
+}
+
+export function rightPanel(ctx, g) {
+  panel(ctx, 1050, 92, 218, 300, PAL.cream);
+  text(ctx, 'SECTORS · 6', 1064, 122, 16, '#7C2D12');
+  SECTORS.forEach((s, i) => {
+    const y = 144 + i * 26;
+    const done = i + 1 < g.sector, cur = i + 1 === g.sector;
+    label(ctx, (done ? '✓ ' : cur ? '➤ ' : '○ ') + s.id + ' ' + s.name, 1064, y, 12, cur ? '#B45309' : '#1C1917');
+  });
+  text(ctx, 'PHENOMENA · 14', 1064, 322, 16, '#7C2D12');
+  const ph = PHENOMENA[g.phenActive];
+  label(ctx, 'NOW: ' + ph.name, 1064, 344, 12, '#B45309');
+  label(ctx, ph.fx, 1064, 362, 11, '#44403C');
+  label(ctx, 'FEATS ' + g.feats.length + '/20 · SAMPLES ' + g.samples, 1064, 384, 11, '#44403C');
+}
+
+export function bottomInstruments(ctx, g) {
+  // 4 instrument close-ups along the bottom edge
+  const y = 596, h = 112;
+  // Fuel manometer
+  panel(ctx, 12, y, 300, h, PAL.cream);
+  text(ctx, 'FUEL MANOMETER', 26, y + 26, 14, '#7C2D12');
+  ctx.fillStyle = '#2A2F3A'; ctx.fillRect(26, y + 44, 260, 18);
+  ctx.fillStyle = g.fuel > 25 ? '#10B981' : '#E5484D';
+  ctx.fillRect(26, y + 44, 260 * (g.fuel / g.fuelMax), 18);
+  ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.strokeRect(26, y + 44, 260, 18);
+  label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 26, y + 86, 13, '#1C1917');
+  label(ctx, 'BURN ' + (0.9 + g.throttle * 2.4).toFixed(1) + '/s', 180, y + 86, 12, '#44403C');
+  // Artificial horizon & compass
+  panel(ctx, 324, y, 300, h, PAL.cream);
+  text(ctx, 'HORIZON & COMPASS', 338, y + 26, 14, '#7C2D12');
+  ctx.save();
+  ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = '#7FB8D8'; ctx.fillRect(350, y + 38, 60, 30);
+  ctx.fillStyle = '#B45309'; ctx.fillRect(350, y + 68, 60, 30);
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(360, y + 68); ctx.lineTo(400, y + 68); ctx.stroke();
+  const hdg = Math.round(((g.heading * 57.2958) % 360 + 360) % 360);
+  label(ctx, 'HDG ' + String(hdg).padStart(3, '0') + '°', 430, y + 62, 16, '#1C1917');
+  label(ctx, 'BANK ' + Math.round(Math.sin(g.t) * 12) + '°', 430, y + 88, 12, '#44403C');
+  // Wing temperature
+  panel(ctx, 636, y, 300, h, PAL.cream);
+  text(ctx, 'WING TEMPERATURE', 650, y + 26, 14, '#7C2D12');
+  ctx.fillStyle = '#2A2F3A'; ctx.fillRect(650, y + 44, 260, 18);
+  const wt = Math.max(0, Math.min(1, g.wingTemp / 115));
+  ctx.fillStyle = g.wingTemp < 15 ? '#38BDF8' : g.wingTemp > 90 ? '#E5484D' : '#D97706';
+  ctx.fillRect(650, y + 44, 260 * wt, 18);
+  ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.strokeRect(650, y + 44, 260, 18);
+  label(ctx, Math.round(g.wingTemp) + '°C  ·  ICE ' + Math.round(g.ice) + '%', 650, y + 86, 13, '#1C1917');
+  label(ctx, '[H] HEAT  [1/2/3] LAYER', 790, y + 86, 11, '#44403C');
+  // Aurora lock stamp
+  panel(ctx, 948, y, 320, h, PAL.cream);
+  text(ctx, 'AURORA LOCK', 962, y + 26, 14, '#7C2D12');
+  ctx.save();
+  ctx.translate(1108, y + 52); ctx.rotate(-0.12);
+  ctx.strokeStyle = '#B45309'; ctx.lineWidth = 3; ctx.strokeRect(-92, -24, 184, 48);
+  label(ctx, 'AURORA LOCK ×12', -80, 6, 18, '#B45309');
+  ctx.restore();
+  label(ctx, 'HULL ' + Math.round(g.hull) + '%  ·  SAMPLES ' + g.samples, 962, y + 92, 12, '#1C1917');
+}
+
+export function matrixBoxes(ctx, x, y, w) {
+  // 8 real matrix boxes in a row
+  const items = [['6', 'SECTORS'], ['14', 'PHENOMENA'], ['6', 'CREW'], ['18', 'MODULES'],
+    ['12', 'EVENTS'], ['20', 'FEATS'], ['3', 'ALTITUDES'], ['4', 'MODES']];
+  const bw = (w - 7 * 6) / 8;
+  items.forEach(([n, l], i) => {
+    const bx = x + i * (bw + 6);
+    panel(ctx, bx, y, bw, 64, '#141B2C');
+    text(ctx, n, bx + bw / 2, y + 30, 26, PAL.gold, 900, 'center');
+    label(ctx, l, bx + bw / 2, y + 52, 10, '#F5EFE6', 'center');
+  });
+}
+
+export function messageBanner(ctx, g) {
+  if (g.msgT > 0 && g.message) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, g.msgT);
+    darkPanel(ctx, 340, 100, 600, 40);
+    label(ctx, g.message, 640, 126, 15, '#F5EFE6', 'center');
+    ctx.restore();
+  }
+}
+export function dialogueBox(ctx, g) {
+  const c = CREW[g.dialogue % CREW.length];
+  panel(ctx, 240, 470, 800, 78, PAL.cream);
+  drawCrew(ctx, c, 282, 509, 28);
+  text(ctx, c.name + ' — ' + c.role.toUpperCase(), 326, 500, 14, '#7C2D12');
+  label(ctx, '“' + c.line + '”', 326, 526, 15, '#1C1917');
+}
