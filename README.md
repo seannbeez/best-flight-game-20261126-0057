@@ -1,8 +1,8 @@
 # STRATOSPHERE OBSERVATORY — Arctic Expedition Aircraft
 
 [![best-flight-game-20261126-0057](https://make.fun/badge/best-flight-game-20261126-0057.svg)](https://make.fun/c/best-flight-game-20261126-0057)
-[![rank](https://make.fun/badge/best-flight-game-20261126-0057/rank.svg)](https://make.fun/c/best-flight-game-20261126-0057)
-[![reward](https://make.fun/badge/best-flight-game-20261126-0057/reward.svg)](https://make.fun/c/best-flight-game-20261126-0057)
+[![rank](https://make.fun/badge/best-flight-game-20261126-0057/seannbeez/best-flight-game-20261126-0057/rank.svg)](https://make.fun/c/best-flight-game-20261126-0057)
+[![reward](https://make.fun/badge/best-flight-game-20261126-0057/seannbeez/best-flight-game-20261126-0057/reward.svg)](https://make.fun/c/best-flight-game-20261126-0057)
 
 A 1928 Arctic expedition flight game for the [Make the best flight game](https://make.fun/c/best-flight-game-20261126-0057) bounty. Fly a twin-boom copper-bronze expedition aircraft through aurora storms over jagged ice peaks: thread glowing sector gates, manage fuel, wing heat and icing across three atmosphere layers, draft refit modules between sorties, and bring all six crew home for a Rank S expedition.
 
