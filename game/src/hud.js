@@ -49,6 +49,30 @@ export function rightPanel(ctx, g) {
 }
 
 export function bottomInstruments(ctx, g) {
+  // v3.2 (Shot 3 only, chase25): the 4 big cream panels are replaced by
+  // ONE thin dark semi-transparent cockpit strip on the very bottom edge
+  // (y 668..720), so the +35% plane has room above it. Live play and
+  // Shots 1/2/4 keep the 4 panels below (unchanged).
+  if (g.chase25) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(8,12,24,0.85)';
+    ctx.fillRect(0, 668, 1280, 52);
+    ctx.fillStyle = '#B45309';
+    ctx.fillRect(0, 668, 1280, 2);
+    // separators between the 4 instrument groups
+    ctx.fillStyle = 'rgba(245,239,230,0.25)';
+    for (const sx of [300, 620, 940]) ctx.fillRect(sx, 678, 1, 32);
+    const hdg = Math.round(((g.heading * 57.2958) % 360 + 360) % 360);
+    label(ctx, 'FUEL ' + Math.round(g.fuel) + '%', 40, 701, 16, '#F5EFE6');
+    label(ctx, 'CRITICAL', 148, 701, 16, '#F87171');
+    label(ctx, 'HDG ' + String(hdg).padStart(3, '0') + '°', 340, 701, 16, '#F5EFE6');
+    label(ctx, 'BANK 63°', 470, 701, 16, '#FBBF24');
+    label(ctx, 'ICE ' + Math.round(g.ice) + '%', 660, 701, 16, '#F5EFE6');
+    label(ctx, 'STALL RISK', 766, 701, 16, '#F87171');
+    label(ctx, 'AURORA ×12', 980, 701, 16, '#FBBF24');
+    ctx.restore();
+    return;
+  }
   // 4 instrument close-ups along the bottom edge — v2.1: real dials with
   // tick marks, needles and zone colouring, not flat bars.
   const y = 596, h = 112;
@@ -205,6 +229,20 @@ export function messageBanner(ctx, g) {
 }
 export function dialogueBox(ctx, g) {
   const c = CREW[g.dialogue % CREW.length];
+  // v3.2 (Shot 3 only, chase25): the 78px dialogue box becomes ONE thin
+  // 30px line (y 634..664) directly above the HUD strip, so the +35%
+  // plane fits. Kobayashi's line stays VERBATIM; only the layout shrinks.
+  // Live storm play (non-chase25) keeps the old box below (unchanged).
+  if (g.chase25) {
+    panel(ctx, 180, 634, 920, 30, PAL.cream);
+    drawCrew(ctx, c, 204, 649, 10);
+    const line = (g.climax && c.name.startsWith('MET.'))
+      ? 'Stall and lightning — heat the wings and break left, now!'
+      : c.line;
+    text(ctx, c.name + ' — ' + c.role.toUpperCase(), 226, 654, 13, '#7C2D12');
+    label(ctx, '“' + line + '”', 512, 654, 14, '#1C1917');
+    return;
+  }
   panel(ctx, 240, 470, 800, 78, PAL.cream);
   drawCrew(ctx, c, 282, 509, 28);
   // v2.4 (climax): Kobayashi's exact line (verbatim, em-dash).

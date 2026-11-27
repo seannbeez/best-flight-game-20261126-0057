@@ -450,7 +450,8 @@ export function drawStorm(ctx, g, world) {
     hz.addColorStop(1, 'rgba(255,60,20,0)');
     ctx.fillStyle = hz;
     ctx.fillRect(0, 230, 1280, 250);
-    ctx.translate(640, 305); ctx.scale(2.2, 0.55);
+    // v3.2: glow core follows the plane centre (640,390).
+    ctx.translate(640, 390); ctx.scale(2.2, 0.55);
     const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 200);
     core.addColorStop(0, 'rgba(255,130,50,0.55)');
     core.addColorStop(0.6, 'rgba(255,80,30,0.25)');
@@ -470,22 +471,22 @@ export function drawStorm(ctx, g, world) {
     // not merge with the peak at 300px. Gap wingtip→apex ~18px→~28px
     // diagonal; apex (451) stays 19px above the dialogue box (470).
     const threatPeak = (x0, ax, ay, x1) => {
-      ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(x0, 700); ctx.lineTo(ax, ay); ctx.lineTo(x1, 700); ctx.closePath();
       ctx.fillStyle = '#5B7FA0'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x1, 560); ctx.lineTo(ax + (x1 - ax) * 0.4, 560); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x1, 700); ctx.lineTo(ax + (x1 - ax) * 0.4, 700); ctx.closePath();
       ctx.fillStyle = '#3D5A78'; ctx.fill();
       ctx.beginPath(); ctx.moveTo(ax - 20, ay + 30); ctx.lineTo(ax, ay); ctx.lineTo(ax + 20, ay + 30); ctx.closePath();
       ctx.fillStyle = 'rgba(234,246,251,0.95)'; ctx.fill();
       ctx.strokeStyle = INK; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x0, 700); ctx.lineTo(ax, ay); ctx.lineTo(x1, 700); ctx.stroke();
     };
-    // v3.0: peak 2 moved left+down (apex 520,451 -> 505,455) — the +7%
-    // plane's iced left wingtip drops to ~(527,439), only ~13px from
-    // the old apex; the new apex sits ~27px diagonal from the tip and
-    // 15px above the dialogue box, clearly below the wing, no overlap.
-    threatPeak(420, 465, 448, 520);
-    threatPeak(480, 505, 455, 580);
-    threatPeak(555, 595, 450, 655);
+    // v3.2: peaks re-anchored under the +35% plane's left wingtip
+    // (~492,583; old tip ~530,442) — apexes ~30-40px below the tip /
+    // wing lower edge, bases run to y700 behind the dialogue + HUD
+    // strips (same hidden-base pattern as v3.0, dialogue was y470).
+    threatPeak(343, 404, 585, 478);
+    threatPeak(424, 458, 590, 559);
+    threatPeak(525, 579, 588, 660);
   }
   // v2.4: 3 glowing green-cyan aurora gate rings in perspective, receding
   // to the right — nearly missed (gale drift). No duplicate AURORA LOCK
@@ -517,16 +518,17 @@ export function drawStorm(ctx, g, world) {
     const flashCols = g.chase25
       ? ['rgba(255,255,255,0.6)', 'rgba(103,232,249,0.30)', 'rgba(103,232,249,0)']
       : ['rgba(255,255,255,0.55)', 'rgba(217,70,239,0.28)', 'rgba(217,70,239,0)'];
-    // v3.0: bolt shifted +15px right — the +6% plane's right wingtip
-    // moved to ~(730,153), so the old trace (x~734 at y150) would sit
-    // on the tip. New trace passes ~15px right of the tip (core edge
-    // ~10px clear): near-miss, never touching or overlapping the wing.
-    const flash = ctx.createRadialGradient(787, 70, 4, 787, 70, 110);
+    // v3.2: bolt shifted +30px right — the +35% plane's right wingtip
+    // moved to ~(767,191), so the old trace (x~749 at y150) would sit
+    // ON the wing. New trace passes ~12px right of the tip (core edge
+    // ~7px clear): near-miss, never touching. Branches shortened so
+    // they still clear the aurora rings (left edge x~804).
+    const flash = ctx.createRadialGradient(817, 70, 4, 817, 70, 110);
     flash.addColorStop(0, flashCols[0]);
     flash.addColorStop(0.5, flashCols[1]);
     flash.addColorStop(1, flashCols[2]);
     ctx.fillStyle = flash;
-    ctx.beginPath(); ctx.arc(787, 70, 110, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(817, 70, 110, 0, Math.PI * 2); ctx.fill();
     const boltTrace = (pts, colors) => {
       for (const [color, lw] of colors) {
         ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
@@ -536,27 +538,29 @@ export function drawStorm(ctx, g, world) {
       }
     };
     const main = g.chase25
-      ? [[785, 60], [767, 96], [755, 122], [749, 150], [751, 178], [745, 206], [753, 240], [745, 276], [753, 310], [745, 344]]
+      ? [[815, 60], [797, 96], [785, 122], [779, 150], [781, 178], [775, 206], [783, 240], [775, 276], [783, 310], [775, 344]]
       : [[772, 64], [756, 96], [744, 122], [738, 150], [740, 178], [732, 206], [742, 240], [730, 276], [738, 310], [730, 344]];
     ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 20;
     boltTrace(main, boltCols);
     ctx.restore();
     if (g.chase25) {
       // flash AT the wing edge — the near-miss reads as a strike about
-      // to land on the right wingtip. v3.0: tip moved to ~(730,153).
-      const edge = ctx.createRadialGradient(730, 153, 2, 730, 153, 42);
+      // to land on the right wingtip. v3.2: tip moved to ~(767,191).
+      const edge = ctx.createRadialGradient(767, 191, 2, 767, 191, 42);
       edge.addColorStop(0, 'rgba(255,255,255,0.85)');
       edge.addColorStop(0.5, 'rgba(103,232,249,0.35)');
       edge.addColorStop(1, 'rgba(103,232,249,0)');
       ctx.fillStyle = edge;
-      ctx.beginPath(); ctx.arc(730, 153, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(767, 191, 42, 0, Math.PI * 2); ctx.fill();
     }
     // branches fork right, away from the plane and the gate rings
     ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 10;
     if (g.chase25) {
-      boltTrace([[755, 122], [783, 138], [811, 150]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
-      boltTrace([[751, 178], [779, 194], [807, 208]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
-      boltTrace([[745, 206], [769, 222], [793, 238]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      // v3.2: branches start on the +30px-shifted main trace but stay
+      // short, so no branch crosses the aurora rings (left edge x~804).
+      boltTrace([[785, 122], [813, 138], [831, 150]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[781, 178], [797, 192], [809, 204]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[775, 206], [787, 218], [795, 228]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
     } else {
       boltTrace([[744, 122], [772, 138], [800, 150]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
       boltTrace([[740, 178], [768, 194], [796, 208]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
@@ -580,35 +584,37 @@ export function drawStorm(ctx, g, world) {
   // sky; wings keep a steep -55° tilt, crossing the fuselage at ~70°.
   // Centre (640, 300): right tip ~(725,158), left (iced) tip ~(536,428),
   // nose prop ~(684,344), tail ~(575,235) — 0% clipped by panels/box.
-  // v3.0: plane centre (640, 298.5) — the +6% scale (art.js, about the
-  // centre) makes the bbox ~307px tall; centred in the y150–y460 band
-  // (banner bottom y140 + 10, dialogue top y470 − 10) the clearances
-  // are ~11px each side (measured from the render). Live storm play
+  // v3.2: plane centre (640, 390), scale 1.431 (art.js) — right tip
+  // ~(767,191), left (iced) tip ~(492,583), nose prop ~(702,453),
+  // tail ~(547,297). Free band is now banner bottom y140 .. dialogue
+  // top y634 (HUD compacted), so the ~401px-tall bbox clears both
+  // sides by ~50px (measured from the render). Live storm play
   // keeps (640, 305), unscaled.
-  // v3.1 (Shot 3 only, chase25): LIGHTNING FLASH on the plane silhouette
+  // v3.2 (Shot 3 only, chase25): LIGHTNING FLASH on the plane silhouette
   // — a soft white-cyan halo behind the aircraft (drawn BEFORE the
   // plane, so the plane itself stays crisp and the flash reads as
   // backlight). The bolt trace itself is untouched (near-miss geometry
   // unchanged). Radius capped so the faint edge stays well clear of the
-  // banner (bottom y140) and dialogue (top y470); the banner is opaque
-  // and drawn later in any case.
+  // banner (bottom y140) and dialogue (top y634); the banner is opaque
+  // and drawn later in any case. Centre follows the plane (640,390).
   if (g.chase25) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const flash = ctx.createRadialGradient(640, 298.5, 10, 640, 298.5, 190);
+    const flash = ctx.createRadialGradient(640, 390, 10, 640, 390, 230);
     flash.addColorStop(0, 'rgba(224,242,254,0.30)');
     flash.addColorStop(0.5, 'rgba(103,232,249,0.14)');
     flash.addColorStop(1, 'rgba(103,232,249,0)');
     ctx.fillStyle = flash;
-    ctx.beginPath(); ctx.arc(640, 298.5, 190, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(640, 390, 230, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
-  drawChaseAircraft(ctx, 640, g.chase25 ? 298.5 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
+  drawChaseAircraft(ctx, 640, g.chase25 ? 390 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
   // v2.1: orange engine sparks from the propeller (deterministic, fixed
   // shot time) — v2.4 re-centred on the chase-view nose prop (640, 243).
   // v2.5: nose prop moved to (684, 344) with the diagonal dive.
   // v3.0: prop centre scales to ~(686,345) with the +6% plane.
-  const [ncx, ncy] = g.chase25 ? [686, 345] : [640, 252];
+  // v3.2: prop centre scales to ~(702,453) with the +35% plane at (640,390).
+  const [ncx, ncy] = g.chase25 ? [702, 453] : [640, 252];
   for (let i = 0; i < 10; i++) {
     const px = ncx + Math.sin(i * 2.7 + g.t * 3) * 52, py = ncy + Math.cos(i * 1.9 + g.t * 2) * 26;
     ctx.fillStyle = i % 2 ? '#FDBA74' : '#FDE68A';
@@ -617,8 +623,9 @@ export function drawStorm(ctx, g, world) {
   // exhaust smoke puffs drifting below the tail (fade before y 470)
   // v2.5: tail moved to ~(575,235) — smoke trails up-left behind it.
   // v3.0: tail scales to ~(571,230); smoke shifted (−4,−6) to follow.
+  // v3.2: tail scales to ~(547,297); smoke follows up-left behind it.
   const smokePts = g.chase25
-    ? [[562, 220], [552, 210], [544, 202], [536, 194]]
+    ? [[534, 282], [524, 272], [516, 264], [508, 256]]
     : [[640, 430], [630, 440], [648, 448], [638, 456]];
   for (let i = 0; i < 4; i++) {
     const sx = smokePts[i][0], sy = smokePts[i][1];
@@ -631,8 +638,10 @@ export function drawStorm(ctx, g, world) {
   // v2.5: chip moved to (340,360) — clear of the diving left wing (tip
   // ~536,428) and of the canyon wall ridge; leader points at the iced
   // left wing near the root (615, 335).
+  // v3.2: leader endpoint follows the scaled wing root (606,439) — the
+  // old point (615,335) would land on the enlarged fuselage edge.
   const [hx, hy] = g.chase25 ? [340, 360] : [400, 380];
-  const [lx, ly] = g.chase25 ? [615, 335] : [620, 332];
+  const [lx, ly] = g.chase25 ? [606, 439] : [620, 332];
   ctx.save();
   ctx.shadowColor = '#F97316'; ctx.shadowBlur = 14;
   ctx.fillStyle = 'rgba(11,17,32,0.92)';
