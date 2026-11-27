@@ -1,6 +1,6 @@
 // render.js — one job: draw every screen (title / play / refit / storm / logbook).
 import { PAL, W, H, INK, SECTORS, CREW, MODULES, PHENOMENA, FEATS, EVENTS, ALTITUDES, MODES, SET_BONUS } from './config.js';
-import { panel, darkPanel, text, label, drawAircraft, drawAurora, drawPeaks, drawCrew, drawRefitArt, poly, ellipse } from './art.js';
+import { panel, darkPanel, text, label, drawAircraft, drawChaseAircraft, drawAurora, drawPeaks, drawCrew, drawRefitArt, poly, ellipse } from './art.js';
 import { topBar, leftPanel, rightPanel, bottomInstruments, matrixBoxes, messageBanner, dialogueBox } from './hud.js';
 import { setBonus } from './flight.js';
 
@@ -109,29 +109,33 @@ export function drawSnow(ctx, g, world, storm) {
     const y = ((s.y * 720 + g.t * s.v * 0.9) % 720 + 720) % 720;
     ctx.fillRect(x, y, s.s, s.s);
   }
-  // v2.2 Fix 2: climax lightning — TWO bright magenta-cyan bolts, drawn
-  // every frozen frame: one tight by the wingtip (x 880), one striking
-  // the jagged ridge below (x 300). Both stay clear of the HDG readout
-  // column (x 320–520 at the top bar; the ridge bolt zigzags to 330 max
-  // and sits far below the top bar, the wingtip bolt is at x 880).
-  if (g.climax) {
-    const bolt = (bx, top, bottom, ph) => {
+  // v2.3: climax lightning — TWO GIANT magenta-cyan bolts, drawn every
+  // frozen frame: one tight by the nose/wingtip (x 860, clears the
+  // aurora rings at x >= 904), one striking the jagged ridge below
+  // (x 300, right by the diving tail fin). Both stay clear of the HDG
+  // readout column (x 320–520 at the top bar; the ridge bolt zigzags to
+  // 336 max and sits far below the top bar, the wingtip bolt is at
+  // x 860). Thicker traces + wider zigzag than v2.2 so they read at 300px.
+  // v2.4: SUPPRESSED for the chase-view shot (g.chase24) — the near-miss
+  // bolt is drawn in drawStorm instead, a few px off the right wingtip.
+  if (g.climax && !g.chase24) {
+    const bolt = (bx, top, bottom, ph, amp) => {
       const trace = (color, lw) => {
         ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
         ctx.beginPath();
         let lx = bx, ly = top;
         ctx.moveTo(lx, ly);
-        for (let k = 0; k < 7; k++) { lx += Math.sin(k * 3 + ph) * 28; ly += (bottom - top) / 7; ctx.lineTo(lx, ly); }
+        for (let k = 0; k < 7; k++) { lx += Math.sin(k * 3 + ph) * amp; ly += (bottom - top) / 7; ctx.lineTo(lx, ly); }
         ctx.stroke();
       };
-      ctx.save(); ctx.shadowColor = '#D946EF'; ctx.shadowBlur = 14;
-      trace('rgba(34,211,238,0.9)', 6);
-      trace('rgba(217,70,239,0.95)', 3);
-      trace('rgba(255,255,255,0.95)', 1.2);
+      ctx.save(); ctx.shadowColor = '#D946EF'; ctx.shadowBlur = 20;
+      trace('rgba(34,211,238,0.9)', 10);
+      trace('rgba(217,70,239,0.95)', 5);
+      trace('rgba(255,255,255,0.95)', 2);
       ctx.restore();
     };
-    bolt(880, 96, 400, 1.2);
-    bolt(300, 300, 640, 4.1);
+    bolt(860, 64, 450, 1.2, 32);
+    bolt(300, 280, 660, 4.1, 36);
   }
   if (storm && !g.climax) {
     // Lightning arcs — v2.1: purple-cyan two-tone, striking cloud tops
@@ -273,50 +277,300 @@ export function drawRefit(ctx, g) {
   label(ctx, 'SCORE ' + g.score + ' · MODULES ' + g.modules.length + '/18', 1000, 630, 13, PAL.gold);
 }
 
+export function drawCanyon3D(ctx) {
+  // v2.4: a 3D ice-peak canyon in perspective — two jagged walls
+  // converging on the vanishing point (640, 300), a receding spine of
+  // sharp peaks down the canyon floor, layered ice fog. The walls stop
+  // short of the side panels (ridge line only reaches y 300 at x 640).
+  const VPX = 640, VPY = 300;
+  // distant peaks ringing the vanishing point (small, far)
+  for (const [dx, dw, dh] of [[-120, 70, 46], [-58, 52, 34], [8, 62, 40], [72, 48, 30], [128, 66, 42]]) {
+    ctx.beginPath();
+    ctx.moveTo(VPX + dx - dw / 2, VPY + 6); ctx.lineTo(VPX + dx, VPY + 6 - dh); ctx.lineTo(VPX + dx + dw / 2, VPY + 6);
+    ctx.closePath();
+    ctx.fillStyle = '#4A6B8A'; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(VPX + dx - 10, VPY + 6 - dh + 14); ctx.lineTo(VPX + dx, VPY + 6 - dh); ctx.lineTo(VPX + dx + 10, VPY + 6 - dh + 14);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(234,246,251,0.9)'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // left wall — dark shadow face, SAWTOOTH ridge (pass 2: the smooth
+  // ridge read as a dome, not a jagged canyon)
+  const leftRidge = [[0, 580], [36, 548], [90, 568], [140, 500], [190, 530], [250, 470], [300, 498], [360, 430], [410, 458], [470, 392], [520, 418], [570, 348], [610, 330], [VPX, VPY]];
+  ctx.beginPath();
+  ctx.moveTo(0, 720);
+  for (const [x, y] of leftRidge) ctx.lineTo(x, y);
+  ctx.lineTo(VPX, 720); ctx.closePath();
+  ctx.fillStyle = '#2E4A68'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 580);
+  for (const [x, y] of leftRidge) ctx.lineTo(x, y);
+  ctx.stroke();
+  // right wall — lit face, sawtooth ridge
+  const rightRidge = [[1280, 580], [1244, 548], [1190, 568], [1140, 500], [1090, 530], [1030, 470], [980, 498], [920, 430], [870, 458], [810, 392], [760, 418], [710, 348], [670, 330], [VPX, VPY]];
+  ctx.beginPath();
+  ctx.moveTo(1280, 720);
+  for (const [x, y] of rightRidge) ctx.lineTo(x, y);
+  ctx.lineTo(VPX, 720); ctx.closePath();
+  ctx.fillStyle = '#4A6B8A'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(1280, 580);
+  for (const [x, y] of rightRidge) ctx.lineTo(x, y);
+  ctx.stroke();
+  // snow caps on the ridge vertices
+  ctx.fillStyle = 'rgba(234,246,251,0.95)';
+  for (const [x, y] of [[140, 500], [360, 430], [570, 348], [1140, 500], [920, 430], [710, 348]]) {
+    ctx.beginPath(); ctx.moveTo(x - 18, y + 8); ctx.lineTo(x, y - 12); ctx.lineTo(x + 18, y + 8); ctx.closePath(); ctx.fill();
+  }
+  // wall facets: alternating dark/light rock faces + snow streaks running
+  // down from the ridge, so the walls read as broken rock, not flat fill
+  ctx.fillStyle = 'rgba(11,17,32,0.30)';
+  for (const [x, y, w, h] of [[120, 560, 90, 90], [300, 500, 110, 110], [470, 420, 90, 90], [1080, 560, 90, 90], [900, 500, 110, 110], [740, 420, 90, 90]]) {
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h * 0.4); ctx.lineTo(x + w * 0.4, y + h); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(234,246,251,0.22)';
+  for (const [x, y, w, h] of [[60, 600, 70, 80], [220, 520, 80, 90], [400, 450, 70, 80], [1160, 600, 70, 80], [1000, 520, 80, 90], [820, 450, 70, 80]]) {
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y + h * 0.3); ctx.lineTo(x + w * 0.5, y + h); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(234,246,251,0.85)';
+  for (const [x, y, len] of [[140, 500, 44], [360, 430, 38], [1140, 500, 44], [920, 430, 38]]) {
+    ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 5, y); ctx.lineTo(x + 2, y + len); ctx.closePath(); ctx.fill();
+  }
+  // NEAR peaks: very close jagged ice peaks framing the bottom corners —
+  // the "very close canyon below" the brief asks for
+  const nearPeak = (x0, yTop, x1) => {
+    ctx.beginPath(); ctx.moveTo(x0, 720); ctx.lineTo(x1, yTop); ctx.lineTo(x0 + (x1 - x0) * 2, 720); ctx.closePath();
+    ctx.fillStyle = '#5B7FA0'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x1 - 22, yTop + 34); ctx.lineTo(x1, yTop); ctx.lineTo(x1 + 22, yTop + 34); ctx.closePath();
+    ctx.fillStyle = 'rgba(234,246,251,0.95)'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, 720); ctx.lineTo(x1, yTop); ctx.lineTo(x0 + (x1 - x0) * 2, 720); ctx.stroke();
+  };
+  nearPeak(-40, 560, 60); nearPeak(80, 500, 170); nearPeak(220, 540, 320);
+  nearPeak(960, 540, 1060); nearPeak(1100, 500, 1190); nearPeak(1230, 560, 1330);
+  // canyon floor: a lighter ice "river" band from the vanishing point
+  // widening toward the viewer — gives the spine peaks a ground to sit
+  // on instead of floating on the dark wall fill (pass 3).
+  ctx.beginPath();
+  ctx.moveTo(VPX - 26, VPY + 8); ctx.lineTo(VPX + 26, VPY + 8);
+  ctx.lineTo(800, 720); ctx.lineTo(480, 720);
+  ctx.closePath();
+  ctx.fillStyle = '#6B8CAE'; ctx.fill();
+  ctx.strokeStyle = 'rgba(28,25,23,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(VPX - 26, VPY + 8); ctx.lineTo(480, 720); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(VPX + 26, VPY + 8); ctx.lineTo(800, 720); ctx.stroke();
+  // canyon-floor spine: sharp peaks receding to the vanishing point,
+  // growing toward the viewer (perspective scale)
+  const spine = [[0, 26, 18], [52, 44, 30], [118, 72, 48], [196, 108, 70], [288, 152, 96], [392, 210, 128], [480, 300, 150], [508, 280, 164]];
+  for (let i = 0; i < spine.length; i++) {
+    const [dy, w, h] = spine[i];
+    const y = VPY + 14 + dy;
+    ctx.beginPath();
+    ctx.moveTo(VPX - w / 2, y); ctx.lineTo(VPX, y - h); ctx.lineTo(VPX + w / 2, y);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 ? '#3D5A78' : '#5B7FA0'; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(VPX - w * 0.14, y - h + h * 0.32); ctx.lineTo(VPX, y - h); ctx.lineTo(VPX + w * 0.14, y - h + h * 0.32);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(234,246,251,0.92)'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // valley shadows where the walls meet the floor (softened pass 2 —
+  // the hard triangles read as a shadow stripe, not a valley)
+  ctx.fillStyle = 'rgba(11,17,32,0.22)';
+  ctx.beginPath(); ctx.moveTo(500, 720); ctx.lineTo(580, 720); ctx.lineTo(640, 360); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(780, 720); ctx.lineTo(700, 720); ctx.lineTo(640, 360); ctx.closePath(); ctx.fill();
+  // layered ice fog across the canyon floor (narrowed to the floor, pass 2)
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = 'rgba(234,246,251,' + (0.07 + i * 0.02).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(640, 500 + i * 80, 300 + i * 80, 16 + i * 5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 export function drawStorm(ctx, g, world) {
-  // Shot 3: magnetic gale climax — cockpit-first, crew behind glass
-  drawSky(ctx, g, world);
+  // Shot 3 v2.4: 3D CHASE-VIEW "Almost Stall + Lightning Near-Miss".
+  // Over-the-shoulder camera behind-above the plane: the plane is centred
+  // on the vanishing point at ~39% of the middle area's width, so 0% of
+  // wings, tail or propellers is clipped by the side panels (the v2.3
+  // rejection). Pure canvas-2D perspective — no WebGL/Three.js.
+  // Far peaks suppressed (peaks: []) — the canyon is the terrain now.
+  drawSky(ctx, g, { ...world, peaks: [] });
+  if (g.chase25) {
+    // v2.5: DARKER night storm sky — bright copper-gold + white ice must
+    // pop instantly at 300px. Veil covers the sky band only; the second
+    // aurora pass, rings, bolt and plane below stay full-bright.
+    ctx.fillStyle = 'rgba(3,6,14,0.42)';
+    ctx.fillRect(0, 0, 1280, 330);
+  }
   drawAurora(ctx, g.t, g.sector, 1.6); // v2.1: sharper, thicker aurora glow
+  // dark storm cloud masses framing the aurora gap above the horizon
+  for (const [ccx, ccy, crx, cry] of [[180, 118, 230, 52], [1100, 108, 250, 58], [480, 78, 180, 38], [880, 62, 150, 32]]) {
+    ctx.fillStyle = 'rgba(14,22,38,0.85)';
+    ctx.beginPath(); ctx.ellipse(ccx, ccy, crx, cry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(60,80,110,0.5)';
+    ctx.beginPath(); ctx.ellipse(ccx, ccy - 12, crx * 0.8, cry * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  }
   drawWindStreaks(ctx, g, 30); // v2.2: denser speed lines for the climax
-  // v2.2 Fix 2: fast white storm wind lines streaking across the screen.
+  // v2.3: fast storm wind lines — v2.4 angles them diagonally down-left
+  // so the gale reads as a crosswind shoving the plane off the gates.
   ctx.save();
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 18; i++) {
     const wy = 110 + ((i * 173 + 60) % 460);
     const wx = (i * 307 + 40) % 1280;
-    ctx.strokeStyle = 'rgba(255,255,255,' + (0.28 + (i % 3) * 0.08).toFixed(2) + ')';
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.30 + (i % 3) * 0.08).toFixed(2) + ')';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 190, wy + 14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 190, wy + 34); ctx.stroke();
   }
   ctx.restore();
-  drawNearPeaks(ctx); // v2.1 Fix 2: near ice mountains + valley fog
-  drawRings(ctx, g);
-  // v2.2 Fix 2: 3 glowing aurora rings top-right, nearly missed by the
-  // crosswind push — tucked into the free sky left of the crew panel.
-  for (const [gx, gy, gr] of [[948, 178, 44], [1010, 130, 30], [1032, 98, 16]]) {
+  drawCanyon3D(ctx); // v2.4: perspective ice canyon, walls -> vanishing point
+  if (g.chase25) {
+    // v2.5: sharp jagged ice peaks raised RIGHT BELOW the diving left
+    // wing (tip ~536,428) — as if metres from collision. Drawn in the
+    // canyon pass, before the plane, so the wing overlaps them; bases
+    // run behind the dialogue box (y 470), apexes stay visible above it.
+    const threatPeak = (x0, ax, ay, x1) => {
+      ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.closePath();
+      ctx.fillStyle = '#5B7FA0'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x1, 560); ctx.lineTo(ax + (x1 - ax) * 0.4, 560); ctx.closePath();
+      ctx.fillStyle = '#3D5A78'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ax - 20, ay + 30); ctx.lineTo(ax, ay); ctx.lineTo(ax + 20, ay + 30); ctx.closePath();
+      ctx.fillStyle = 'rgba(234,246,251,0.95)'; ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.stroke();
+    };
+    threatPeak(420, 465, 448, 520);
+    threatPeak(480, 520, 436, 580);
+    threatPeak(555, 595, 450, 655);
+  }
+  // v2.4: 3 glowing green-cyan aurora gate rings in perspective, receding
+  // to the right — nearly missed (gale drift). No duplicate AURORA LOCK
+  // ×12 top centre (removed v2.2; bottom-right stamp only).
+  // v2.5: GREEN-GOLD rings (gold outer, green inner) — v2.4's were green-cyan.
+  for (const [gx, gy, gr] of [[850, 235, 46], [935, 205, 30], [1000, 182, 18]]) {
     ctx.save();
-    ctx.shadowColor = '#10B981'; ctx.shadowBlur = 16;
+    ctx.shadowColor = g.chase25 ? '#F2B705' : '#10B981'; ctx.shadowBlur = 16;
     ctx.beginPath(); ctx.ellipse(gx, gy, gr, gr * 0.82, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = '#10B981'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.strokeStyle = g.chase25 ? '#F2B705' : '#10B981'; ctx.lineWidth = 6; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(gx, gy, gr - 11, (gr - 11) * 0.82, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = '#F2B705'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = g.chase25 ? '#10B981' : '#F2B705'; ctx.lineWidth = 3; ctx.stroke();
     ctx.restore();
   }
-  // v2.2 Fix 2: the small duplicate "AURORA LOCK ×12" that sat here at
-  // top centre is REMOVED — only the clean stamp at bottom-right shows.
-  // v2.2 Fix 2: sharp 40° banking (-0.70 rad) + climax ice / heat visuals.
-  drawAircraft(ctx, 640, 320, 1.9, -0.70, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true });
-  // v2.1: white smoke trails off the wingtips + orange engine sparks
-  // from the propellers (deterministic positions from the fixed shot time).
-  for (let i = 0; i < 8; i++) {
-    const sx = 640 - 300 - i * 42, sy = 300 + Math.sin(i * 1.3 + g.t) * 14 + i * 3;
-    ctx.fillStyle = 'rgba(234,246,251,' + (0.55 - i * 0.055).toFixed(2) + ')';
-    ctx.beginPath(); ctx.ellipse(sx, sy, 26 - i * 1.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+  // v2.4 (climax only): BRANCHING magenta-cyan bolt striking a few px
+  // off the right wingtip (tip ~713,167; bolt passes x ~739 at that
+  // height, ~13px clear). Flash glow in the dark cloud above. The bolt
+  // passes behind the message banner (y 100–140), as the v2.3 bolt did.
+  // v2.5: BRIGHT BRANCHING WHITE-CYAN bolt (no magenta) — the right
+  // wingtip moved to ~(725,158) with the diagonal dive, so the bolt now
+  // runs down x ~734 at that height (~12px clear) with a flash glow at
+  // the wing edge. Cloud flash above; branches fork right, away from
+  // the plane and the gate rings.
+  if (g.climax) {
+    const boltCols = g.chase25
+      ? [['rgba(103,232,249,0.9)', 10], ['rgba(255,255,255,0.95)', 5], ['rgba(255,255,255,1)', 2]]
+      : [['rgba(34,211,238,0.9)', 10], ['rgba(217,70,239,0.95)', 5], ['rgba(255,255,255,0.95)', 2]];
+    const boltShadow = g.chase25 ? '#67E8F9' : '#D946EF';
+    const flashCols = g.chase25
+      ? ['rgba(255,255,255,0.6)', 'rgba(103,232,249,0.30)', 'rgba(103,232,249,0)']
+      : ['rgba(255,255,255,0.55)', 'rgba(217,70,239,0.28)', 'rgba(217,70,239,0)'];
+    const flash = ctx.createRadialGradient(772, 70, 4, 772, 70, 110);
+    flash.addColorStop(0, flashCols[0]);
+    flash.addColorStop(0.5, flashCols[1]);
+    flash.addColorStop(1, flashCols[2]);
+    ctx.fillStyle = flash;
+    ctx.beginPath(); ctx.arc(772, 70, 110, 0, Math.PI * 2); ctx.fill();
+    const boltTrace = (pts, colors) => {
+      for (const [color, lw] of colors) {
+        ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+        ctx.stroke();
+      }
+    };
+    const main = g.chase25
+      ? [[770, 60], [752, 96], [740, 122], [734, 150], [736, 178], [730, 206], [738, 240], [730, 276], [738, 310], [730, 344]]
+      : [[772, 64], [756, 96], [744, 122], [738, 150], [740, 178], [732, 206], [742, 240], [730, 276], [738, 310], [730, 344]];
+    ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 20;
+    boltTrace(main, boltCols);
+    ctx.restore();
+    if (g.chase25) {
+      // flash AT the wing edge — the near-miss reads as a strike about
+      // to land on the right wingtip.
+      const edge = ctx.createRadialGradient(732, 156, 2, 732, 156, 42);
+      edge.addColorStop(0, 'rgba(255,255,255,0.85)');
+      edge.addColorStop(0.5, 'rgba(103,232,249,0.35)');
+      edge.addColorStop(1, 'rgba(103,232,249,0)');
+      ctx.fillStyle = edge;
+      ctx.beginPath(); ctx.arc(732, 156, 42, 0, Math.PI * 2); ctx.fill();
+    }
+    // branches fork right, away from the plane and the gate rings
+    ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 10;
+    if (g.chase25) {
+      boltTrace([[740, 122], [768, 138], [796, 150]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[736, 178], [764, 194], [792, 208]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[730, 206], [754, 222], [778, 238]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+    } else {
+      boltTrace([[744, 122], [772, 138], [800, 150]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[740, 178], [768, 194], [796, 208]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[732, 206], [756, 222], [780, 238]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+    }
+    ctx.restore();
+    // distant bolt striking the canyon floor, far left (clear of the
+    // [H] chip and both side panels)
+    ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 8;
+    boltTrace([[300, 380], [312, 420], [296, 460], [308, 500], [300, 540]], g.chase25
+      ? [['rgba(103,232,249,0.7)', 4], ['rgba(255,255,255,0.8)', 1]]
+      : [['rgba(34,211,238,0.7)', 4], ['rgba(217,70,239,0.7)', 2], ['rgba(255,255,255,0.8)', 1]]);
+    ctx.restore();
   }
+  // v2.4: the chase-view aircraft — centred (640, 305), banking 63°
+  // (-1.10 rad), nose slightly up toward the vanishing point. Half-span
+  // 160px (~39% of the 816px middle area): the lowest wingtip corner
+  // clears the dialogue box (y 470) and nothing touches the side panels.
+  // v2.5: DIAGONAL DIVING pose (dive25) — fuselage rotated 135° so the
+  // nose + copper props point forward-down to the lower-right over dark
+  // sky; wings keep a steep -55° tilt, crossing the fuselage at ~70°.
+  // Centre (640, 300): right tip ~(725,158), left (iced) tip ~(536,428),
+  // nose prop ~(684,344), tail ~(575,235) — 0% clipped by panels/box.
+  drawChaseAircraft(ctx, 640, g.chase25 ? 300 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
+  // v2.1: orange engine sparks from the propeller (deterministic, fixed
+  // shot time) — v2.4 re-centred on the chase-view nose prop (640, 243).
+  // v2.5: nose prop moved to (684, 344) with the diagonal dive.
+  const [ncx, ncy] = g.chase25 ? [684, 344] : [640, 252];
   for (let i = 0; i < 10; i++) {
-    const px = 902 + Math.sin(i * 2.7 + g.t * 3) * 26, py = 320 + Math.cos(i * 1.9 + g.t * 2) * 22;
+    const px = ncx + Math.sin(i * 2.7 + g.t * 3) * 52, py = ncy + Math.cos(i * 1.9 + g.t * 2) * 26;
     ctx.fillStyle = i % 2 ? '#FDBA74' : '#FDE68A';
     ctx.beginPath(); ctx.arc(px, py, i % 3 === 0 ? 3 : 2, 0, Math.PI * 2); ctx.fill();
   }
+  // exhaust smoke puffs drifting below the tail (fade before y 470)
+  // v2.5: tail moved to ~(575,235) — smoke trails up-left behind it.
+  const smokePts = g.chase25
+    ? [[566, 226], [556, 216], [548, 208], [540, 200]]
+    : [[640, 430], [630, 440], [648, 448], [638, 456]];
+  for (let i = 0; i < 4; i++) {
+    const sx = smokePts[i][0], sy = smokePts[i][1];
+    ctx.fillStyle = 'rgba(234,246,251,' + (0.5 - i * 0.1).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(sx, sy, 16 - i * 2, 7, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // v2.4: glowing [H] HEAT ACTIVE tag at the left wing root — orange heat
+  // vs blue ice. Free sky below-left of the plane; leader line points at
+  // the glowing wing-root melt zone (~620, 332).
+  // v2.5: chip moved to (340,360) — clear of the diving left wing (tip
+  // ~536,428) and of the canyon wall ridge; leader points at the iced
+  // left wing near the root (615, 335).
+  const [hx, hy] = g.chase25 ? [340, 360] : [400, 380];
+  const [lx, ly] = g.chase25 ? [615, 335] : [620, 332];
+  ctx.save();
+  ctx.shadowColor = '#F97316'; ctx.shadowBlur = 14;
+  ctx.fillStyle = 'rgba(11,17,32,0.92)';
+  ctx.fillRect(hx, hy, 172, 30);
+  ctx.strokeStyle = '#F97316'; ctx.lineWidth = 2; ctx.strokeRect(hx, hy, 172, 30);
+  ctx.restore();
+  label(ctx, '[H] HEAT ACTIVE', hx + 86, hy + 20, 15, '#FB923C', 'center');
+  ctx.save();
+  ctx.strokeStyle = '#FB923C'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(hx + 172, hy + 15); ctx.lineTo(lx, ly); ctx.stroke();
+  ctx.restore();
   drawSnow(ctx, g, world, true);
   // solid cream side panels with dark frames
   panel(ctx, 12, 92, 220, 260, PAL.cream);

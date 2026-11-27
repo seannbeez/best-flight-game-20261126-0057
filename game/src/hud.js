@@ -69,11 +69,16 @@ export function bottomInstruments(ctx, g) {
   ctx.beginPath(); ctx.moveTo(fx - 6, y + 38); ctx.lineTo(fx + 6, y + 38); ctx.lineTo(fx, y + 46); ctx.closePath(); ctx.fill();
   label(ctx, 'E', 26, y + 80, 10, '#44403C');
   label(ctx, 'F', 278, y + 80, 10, '#44403C');
-  // v2.2 Fix 2 (climax): red LOW FUEL warning instead of the plain level.
+  // v2.4 (climax): red CRITICAL fuel warning — 8 / 100 GAL. The track
+  // itself tints dark red ("merah penuh") while the bright-red level
+  // sliver still shows the true 8% level.
   if (g.climax) {
     ctx.save(); ctx.shadowColor = '#E5484D'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#7F1D1D'; ctx.fillRect(26, y + 44, 260, 18);
+    ctx.fillStyle = '#E5484D'; ctx.fillRect(26, y + 44, 260 * (g.fuel / g.fuelMax), 18);
+    ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.strokeRect(26, y + 44, 260, 18);
     ctx.strokeStyle = '#E5484D'; ctx.lineWidth = 2.5; ctx.strokeRect(26, y + 44, 260, 18); ctx.restore();
-    label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL · LOW FUEL', 40, y + 86, 13, '#E5484D');
+    label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL · CRITICAL', 40, y + 86, 13, '#E5484D');
   } else {
     label(ctx, Math.round(g.fuel) + ' / ' + g.fuelMax + ' GAL', 40, y + 86, 13, '#1C1917');
     label(ctx, 'BURN ' + (0.9 + g.throttle * 2.4).toFixed(1) + '/s', 180, y + 86, 12, '#44403C');
@@ -81,16 +86,19 @@ export function bottomInstruments(ctx, g) {
   // Artificial horizon & compass — pitch ladder, bank needle, tick ring.
   panel(ctx, 324, y, 300, h, PAL.cream);
   text(ctx, 'HORIZON & COMPASS', 338, y + 26, 14, '#7C2D12');
-  // v2.2 Fix 2 (climax): the horizon reads a sharp 42° bank, not ~0°.
-  const bankDeg = g.climax ? 42 : Math.round(Math.sin(g.t) * 12);
+  // v2.4 (climax): the horizon reads a sharp 63° bank, not ~0° — the
+  // sky/ground halves and pitch ladder inside the ball tilt with it.
+  const bankDeg = g.climax ? 63 : Math.round(Math.sin(g.t) * 12);
   ctx.save();
   ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.clip();
-  ctx.fillStyle = '#7FB8D8'; ctx.fillRect(350, y + 38, 60, 30);
-  ctx.fillStyle = '#B45309'; ctx.fillRect(350, y + 68, 60, 30);
+  ctx.translate(380, y + 68);
+  ctx.rotate(g.climax ? -bankDeg * Math.PI / 180 : 0);
+  ctx.fillStyle = '#7FB8D8'; ctx.fillRect(-30, -30, 60, 30);
+  ctx.fillStyle = '#B45309'; ctx.fillRect(-30, 0, 60, 30);
   // pitch ladder lines inside the ball
   ctx.strokeStyle = 'rgba(28,25,23,0.7)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(358, y + 52); ctx.lineTo(402, y + 52); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(362, y + 84); ctx.lineTo(398, y + 84); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-22, -16); ctx.lineTo(22, -16); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-18, 16); ctx.lineTo(18, 16); ctx.stroke();
   ctx.restore();
   ctx.beginPath(); ctx.arc(380, y + 68, 30, 0, Math.PI * 2); ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2.5; ctx.stroke();
   // tick ring (N/E/S/W) around the ball
@@ -108,9 +116,9 @@ export function bottomInstruments(ctx, g) {
   ctx.fillStyle = '#E5484D';
   ctx.beginPath(); ctx.moveTo(-5, -30); ctx.lineTo(5, -30); ctx.lineTo(0, -38); ctx.closePath(); ctx.fill();
   ctx.restore();
-  // level wings line — v2.2 climax: tilted sharply with the 42° bank.
+  // level wings line — v2.3 climax: tilted sharply with the 45° bank.
   ctx.save();
-  ctx.translate(380, y + 68); ctx.rotate(g.climax ? -42 * Math.PI / 180 : 0);
+  ctx.translate(380, y + 68); ctx.rotate(g.climax ? -bankDeg * Math.PI / 180 : 0);
   ctx.strokeStyle = '#1C1917'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(20, 0); ctx.stroke();
   ctx.restore();
   const hdg = Math.round(((g.heading * 57.2958) % 360 + 360) % 360);
@@ -136,11 +144,12 @@ export function bottomInstruments(ctx, g) {
   ctx.fillStyle = '#1C1917';
   ctx.beginPath(); ctx.moveTo(wx - 6, y + 38); ctx.lineTo(wx + 6, y + 38); ctx.lineTo(wx, y + 46); ctx.closePath(); ctx.fill();
   label(ctx, Math.round(g.wingTemp) + '°C  ·  ICE ' + Math.round(g.ice) + '%', 668, y + 86, 13, '#1C1917');
-  // v2.2 Fix 2 (climax): wing bar glows red-orange, ICE BUILDING! warning.
+  // v2.4 (climax): wing bar glows red-orange, full emergency warning on
+  // its own line — ICE 84% · STALL RISK.
   if (g.climax) {
     ctx.save(); ctx.shadowColor = '#EA580C'; ctx.shadowBlur = 12;
     ctx.strokeStyle = '#EA580C'; ctx.lineWidth = 2.5; ctx.strokeRect(650, y + 44, 260, 18); ctx.restore();
-    label(ctx, 'ICE BUILDING!', 790, y + 86, 11, '#EA580C');
+    label(ctx, 'ICE 84% · STALL RISK', 650, y + 104, 11, '#E5484D');
   } else {
     label(ctx, '[H] HEAT  [1/2/3] LAYER', 790, y + 86, 11, '#44403C');
   }
@@ -187,10 +196,12 @@ export function dialogueBox(ctx, g) {
   const c = CREW[g.dialogue % CREW.length];
   panel(ctx, 240, 470, 800, 78, PAL.cream);
   drawCrew(ctx, c, 282, 509, 28);
-  // v2.2 Fix 2 (climax): Kobayashi's exact panicked line. The name stays
-  // clean bold Dark Navy/Terracotta on cream — no black stroke artifact.
+  // v2.4 (climax): Kobayashi's exact line (verbatim, em-dash).
+  // The name stays clean bold Dark Navy/Terracotta on cream — no black
+  // stroke artifact. Header already carries "MET. AYA KOBAYASHI", so the
+  // quoted line is the spoken words exactly as briefed.
   const line = (g.climax && c.name.startsWith('MET.'))
-    ? 'Heavy rime ice on both wings — hold [H] heat now or we stall into the ridge!'
+    ? 'Stall and lightning — heat the wings and break left, now!'
     : c.line;
   text(ctx, c.name + ' — ' + c.role.toUpperCase(), 326, 500, 14, '#7C2D12');
   label(ctx, '“' + line + '”', 326, 526, 15, '#1C1917');

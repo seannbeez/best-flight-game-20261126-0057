@@ -212,19 +212,50 @@ export function drawAircraft(ctx, cx, cy, s, bank, t, opts = {}) {
     ctx.lineTo(10, 42); ctx.lineTo(-24, 24); ctx.closePath();
     ctx.fillStyle = '#DBEAFE'; ctx.fill();
     ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 2; ctx.stroke();
-    // orange heat glow starting to melt the wing roots
+    // orange heat glow starting to melt the wing roots — v2.3: bigger
+    // and brighter (heat vs ice contrast must read at 300px).
     ctx.save();
-    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 18;
-    ctx.fillStyle = 'rgba(249,115,22,0.75)';
-    ctx.beginPath(); ctx.ellipse(-18, -8, 22, 10, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-8, 16, 18, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 24;
+    ctx.fillStyle = 'rgba(249,115,22,0.85)';
+    ctx.beginPath(); ctx.ellipse(-18, -8, 26, 12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-8, 16, 22, 10, 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     ctx.fillStyle = '#FDE68A';
-    ctx.beginPath(); ctx.ellipse(-18, -8, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-18, -8, 13, 5, 0, 0, Math.PI * 2); ctx.fill();
     // melt drips running off the wing root
     ctx.strokeStyle = 'rgba(56,189,248,0.9)'; ctx.lineWidth = 2;
-    for (const [dx, dy] of [[-26, 2], [-12, 6], [2, 10]]) {
+    for (const [dx, dy] of [[-26, 2], [-12, 6], [2, 10], [-20, 10], [8, 14]]) {
       ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + 2, dy + 12); ctx.stroke();
+    }
+    // v2.3: thick rime ice capping the cockpit glass — a jagged sheet
+    // over the whole glass (semi-transparent so the crew still shows
+    // through) with opaque crystal teeth along its top edge.
+    ctx.beginPath();
+    ctx.moveTo(14, -4); ctx.lineTo(20, -28); ctx.lineTo(34, -20); ctx.lineTo(44, -34);
+    ctx.lineTo(56, -22); ctx.lineTo(68, -32); ctx.lineTo(78, -18); ctx.lineTo(88, -8);
+    ctx.lineTo(80, 2); ctx.lineTo(22, 2); ctx.closePath();
+    ctx.fillStyle = 'rgba(219,234,254,0.82)'; ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#EAF6FB';
+    for (const [tx, ty] of [[24, -26], [44, -32], [64, -30], [80, -16]]) {
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + 5, ty - 12); ctx.lineTo(tx + 10, ty); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    // v2.3: ice on the twin tail fin leading edges.
+    for (const dy of [-30, 30]) {
+      for (const [ix, iy] of [[-128, dy - 24], [-126, dy - 14], [-128, dy - 4]]) {
+        ctx.save(); ctx.translate(ix, iy);
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = k * Math.PI / 3, r = k % 2 ? 3 : 6;
+          if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fillStyle = '#DBEAFE'; ctx.fill();
+        ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.restore();
+      }
     }
   }
   // nose propellers (2, spinning blur)
@@ -252,8 +283,10 @@ export function drawAircraft(ctx, cx, cy, s, bank, t, opts = {}) {
   }
   // v2.2 Fix 2 (climax): thick rime ice clinging to the propeller disc —
   // crystal clusters at the blade tips, on top of the heated-prop glow.
+  // v2.3: tighter cluster (radius ~28 local) so no crystal pokes into
+  // the top bar at the +35% scale / 45° bank.
   if (opts.climax) {
-    for (const [ix, iy] of [[138, -40], [170, -14], [170, 16], [138, 40], [106, 12], [106, -12]]) {
+    for (const [ix, iy] of [[138, -28], [156, -8], [156, 8], [138, 28], [112, 8], [112, -8]]) {
       ctx.save(); ctx.translate(ix, iy);
       ctx.beginPath();
       for (let k = 0; k < 6; k++) {
@@ -269,6 +302,321 @@ export function drawAircraft(ctx, cx, cy, s, bank, t, opts = {}) {
   }
   // wingtip lights
   ctx.beginPath(); ctx.arc(112, -52, 5, 0, Math.PI * 2); ctx.fillStyle = '#10B981'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
+// --- 3D chase-view aircraft (v2.4, Shot 3 only) ---
+// Over-the-shoulder view from behind-above: big tail near the camera at
+// the bottom, fuselage tapering (perspective) to a small nose far ahead
+// at the top, pointed at the vanishing point. The fuselage axis stays
+// fixed on the vanishing point; ONLY the wings / tailplane / fins roll
+// with the bank angle, each rotating about its own centre — that is what
+// a 63° bank looks like from behind. Pure canvas-2D perspective
+// (taper + foreshortening + converging canyon); no WebGL/Three.js.
+// Local frame: origin at plane centre, +x right, +y down, nose at -y.
+// bank is in radians (negative = left wing diving).
+export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
+  const mods = opts.mods || [];
+  ctx.save();
+  ctx.translate(cx, cy);
+  // v2.5: DIAGONAL DIVING pose — the fuselage group rotates 135° so the
+  // nose + copper props point forward-DOWN to the lower-right over dark
+  // sky (never a vertical column stacked on the peaks); the wings keep
+  // their own steep -55° tilt, so fuselage and wings cross at ~70° and
+  // the plane reads as an unmistakable diving aircraft at 300px, not
+  // one orange diagonal mass (the v2.4 failure: bank 63° put the wings
+  // only 27° off the fuselage axis). BANK 63° stays on the HUD.
+  const DIVE = opts.dive25 ? Math.PI * 0.75 : 0; // 135° clockwise
+  const WBANK = opts.dive25 ? -0.96 : bank; // wings: -55° on screen
+  // ---- fuselage (dive-rotated in v2.5): tapered brass body, wide tail
+  // -> narrow nose. v2.4 pass 2: FORESHORTENED (tail +92, nose -62).
+  ctx.save(); ctx.rotate(DIVE);
+  ctx.beginPath();
+  ctx.moveTo(-30, 92); ctx.lineTo(-18, 44); ctx.lineTo(-10, -20); ctx.lineTo(-6, -62);
+  ctx.lineTo(6, -62); ctx.lineTo(10, -20); ctx.lineTo(18, 44); ctx.lineTo(30, 92);
+  ctx.closePath();
+  ctx.fillStyle = '#C98A2E'; ctx.fill();
+  // top highlight strip (sun on the spine)
+  ctx.beginPath();
+  ctx.moveTo(-5, -58); ctx.lineTo(5, -58); ctx.lineTo(9, 40); ctx.lineTo(-9, 40);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,220,150,0.55)'; ctx.fill();
+  // belly shade
+  ctx.beginPath();
+  ctx.moveTo(-28, 88); ctx.lineTo(28, 88); ctx.lineTo(16, 44); ctx.lineTo(-16, 44);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(120,53,15,0.45)'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-30, 92); ctx.lineTo(-18, 44); ctx.lineTo(-10, -20); ctx.lineTo(-6, -62);
+  ctx.lineTo(6, -62); ctx.lineTo(10, -20); ctx.lineTo(18, 44); ctx.lineTo(30, 92);
+  ctx.closePath(); ctx.stroke();
+  // panel lines across the fuselage
+  ctx.strokeStyle = 'rgba(28,25,23,0.45)'; ctx.lineWidth = 1.5;
+  for (const py of [-16, 12, 40]) {
+    ctx.beginPath(); ctx.moveTo(-13, py); ctx.quadraticCurveTo(0, py + 4, 13, py); ctx.stroke();
+  }
+  // rivets down the spine
+  ctx.fillStyle = 'rgba(28,25,23,0.6)';
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-14 + (i % 2) * 28, -46 + i * 22, 1.5, 0, Math.PI * 2); ctx.fill(); }
+  // twin tail booms flanking the tail (fore-aft rails, seen from behind)
+  for (const bx of [-24, 24]) {
+    ctx.beginPath();
+    ctx.moveTo(bx - 6, 28); ctx.lineTo(bx + 6, 28); ctx.lineTo(bx + 8, 92); ctx.lineTo(bx - 8, 92);
+    ctx.closePath();
+    ctx.fillStyle = '#B45309'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,214,130,0.6)'; ctx.fillRect(bx - 5, 30, 3, 58);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // aux fuel bladder slung under the tail (installed refit, peeking below)
+  if (mods.includes('fuel-bladder')) {
+    ctx.beginPath(); ctx.ellipse(0, 100, 26, 9, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#C98A2E'; ctx.fill();
+    ctx.fillStyle = 'rgba(120,53,15,0.45)';
+    ctx.beginPath(); ctx.ellipse(3, 103, 20, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,220,150,0.8)';
+    ctx.beginPath(); ctx.ellipse(-4, 95, 18, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#3B2F2F'; ctx.fillRect(-14, 92, 6, 16); ctx.fillRect(8, 92, 6, 16);
+  }
+  // heater exhaust flame at the tail (storm / heat on) — small, at viewer
+  if (opts.storm) {
+    ctx.save(); ctx.translate(0, 96);
+    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#F97316';
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.quadraticCurveTo(0, 14, 6, 0); ctx.quadraticCurveTo(0, 5, -6, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#FDE68A';
+    ctx.beginPath(); ctx.moveTo(-3, 0); ctx.quadraticCurveTo(0, 7, 3, 0); ctx.quadraticCurveTo(0, 3, -3, 0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore(); // end dive-rotated fuselage group (v2.5; no-op when DIVE 0)
+  // ---- wings (rolled with the bank about the wing root, local (0, 5))
+  ctx.save();
+  ctx.translate(0, 5); ctx.rotate(WBANK);
+  const wing = (sign) => {
+    // v2.4 pass 3: LIGHTER copper than the brass fuselage + thicker chord
+    // (46 root -> 24 tip) + a dark root seam — at 63° bank the rising
+    // wing sits only 27° off the fuselage axis, so pass 2's same-colour
+    // thin wing merged into one orange column with the body.
+    ctx.beginPath();
+    ctx.moveTo(sign * 10, -23); ctx.lineTo(sign * 150, -30); ctx.lineTo(sign * 165, -12);
+    ctx.lineTo(sign * 150, 16); ctx.lineTo(sign * 14, 23);
+    ctx.closePath();
+    // v2.5: brighter copper-gold so the wings pop off the darker night sky.
+    ctx.fillStyle = opts.dive25 ? '#F2A93B' : '#E8912A'; ctx.fill();
+    ctx.fillStyle = 'rgba(120,53,15,0.55)'; ctx.fillRect(sign > 0 ? 12 : -150, 10, 138, 10);
+    ctx.fillStyle = opts.dive25 ? 'rgba(255,232,175,0.95)' : 'rgba(255,224,160,0.9)'; ctx.fillRect(sign > 0 ? 12 : -148, -28, 136, 7);
+    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
+    // wing ribs
+    ctx.strokeStyle = 'rgba(28,25,23,0.5)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const rx = sign * (40 + i * 30);
+      ctx.beginPath(); ctx.moveTo(rx, -26); ctx.lineTo(rx + sign * 4, 19); ctx.stroke();
+    }
+    // dark root seam where the wing meets the fuselage
+    ctx.strokeStyle = 'rgba(28,25,23,0.75)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(sign * 12, -22); ctx.lineTo(sign * 16, 22); ctx.stroke();
+  };
+  wing(1); // right wing (rises with the left bank) — bare copper + tip ice
+  wing(-1); // left wing (diving) — copper base, iced over below
+  // v2.4: THICK layered crystal ice covering ~70% of the diving left wing,
+  // from the tip in to just short of the root; the root stays copper-hot.
+  // (Slab follows the pass-3 thicker wing: top edge -14 at the tip
+  // sloping to -28 at the root, with a slight overhang at the tip.)
+  // v2.5: 75% coverage — the slab now reaches in to -44 (three-quarters
+  // of the span from the tip), brighter near-white, with bigger jagged
+  // teeth and chunky crystal blocks for a heavy iced look.
+  const iceRoot = opts.dive25 ? -44 : -52;
+  ctx.beginPath();
+  ctx.moveTo(-165, -14); ctx.lineTo(iceRoot, -28); ctx.lineTo(iceRoot, 24); ctx.lineTo(-165, 18);
+  ctx.closePath();
+  ctx.fillStyle = opts.dive25 ? '#EDF5FF' : '#DBEAFE'; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-165, -14); ctx.lineTo(-118, -20); ctx.lineTo(-118, 20); ctx.lineTo(-165, 18);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+  ctx.strokeStyle = opts.dive25 ? '#7DD3FC' : '#38BDF8'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-165, -14); ctx.lineTo(iceRoot, -28); ctx.lineTo(iceRoot, 24); ctx.lineTo(-165, 18);
+  ctx.closePath(); ctx.stroke();
+  // jagged crystal teeth along the iced leading edge
+  ctx.fillStyle = '#F4FAFF';
+  for (let k = 0; k < 6; k++) {
+    const tx = -158 + k * 17, by = -16 - k * 2.2;
+    ctx.beginPath(); ctx.moveTo(tx, by); ctx.lineTo(tx + 6, by - (opts.dive25 ? 20 : 14)); ctx.lineTo(tx + 12, by); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = opts.dive25 ? '#7DD3FC' : '#38BDF8'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  // v2.5: chunky crystal blocks jutting off the slab — heavy ice, not a
+  // flat sheet. (Left wing only; the right wing stays bare copper.)
+  if (opts.dive25) {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#7DD3FC'; ctx.lineWidth = 1.5;
+    for (const [bx, by, bw, bh] of [[-152, -30, 26, 18], [-112, -34, 30, 20], [-72, -32, 26, 18]]) {
+      ctx.beginPath();
+      ctx.moveTo(bx, by + bh); ctx.lineTo(bx + bw * 0.3, by); ctx.lineTo(bx + bw * 0.62, by + bh * 0.45);
+      ctx.lineTo(bx + bw, by + bh * 0.2); ctx.lineTo(bx + bw, by + bh); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+  }
+  // crystal stars scattered on the ice slab
+  for (const [ccx, ccy] of [[-140, -8], [-110, 4], [-86, -10], [-132, 8], [-66, 6]]) {
+    ctx.save(); ctx.translate(ccx, ccy);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3, r = k % 2 ? 3 : 7;
+      if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#DBEAFE'; ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  // orange [H] HEAT glow melting both wing roots (heat vs ice contrast).
+  // Outboard of the canopy (canopy spans ~±21 here) so the glow stays visible.
+  for (const gx of [-26, 26]) {
+    ctx.save();
+    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(249,115,22,0.85)';
+    ctx.beginPath(); ctx.ellipse(gx, 4, 16, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#FDE68A';
+    ctx.beginPath(); ctx.ellipse(gx, 4, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // melt drips running off the left root (outboard of the canopy)
+  ctx.strokeStyle = 'rgba(56,189,248,0.9)'; ctx.lineWidth = 2;
+  for (const [dx, dy] of [[-34, 8], [-22, 12], [-40, 12]]) {
+    ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + 2, dy + 10); ctx.stroke();
+  }
+  // ice shards flying off the diving left wing (leading-edge side, so
+  // they stay above the dialogue box at full frame)
+  ctx.fillStyle = '#EAF6FB';
+  for (const [sx, sy, sr] of [[-172, -16, 5], [-160, -24, 4], [-144, -28, 5], [-128, -22, 4]]) {
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(sr);
+    ctx.beginPath(); ctx.moveTo(-sr, 0); ctx.lineTo(sr, -sr); ctx.lineTo(sr, sr); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  // wingtip lights: bright green + white strobe on the rising right tip
+  // (the lightning near-miss target), left tip glinting through its ice
+  ctx.beginPath(); ctx.arc(158, -6, 5, 0, Math.PI * 2); ctx.fillStyle = '#10B981'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(162, -10, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+  ctx.beginPath(); ctx.arc(-158, -6, 4, 0, Math.PI * 2); ctx.fillStyle = '#A7F3D0'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+  // ---- tailplane + vertical fins (rolled with the bank about the tail centre)
+  ctx.save();
+  // v2.5: the tailplane rides with the diving fuselage — its centre is
+  // the fuselage tail point rotated 135°: R(135°)·(0,80) = (-56.6,-56.6).
+  if (opts.dive25) { ctx.translate(-56.6, -56.6); ctx.rotate(DIVE); }
+  else { ctx.translate(0, 80); ctx.rotate(bank); }
+  for (const sign of [1, -1]) {
+    ctx.beginPath();
+    ctx.moveTo(sign * 8, -6); ctx.lineTo(sign * 50, -9); ctx.lineTo(sign * 54, 0); ctx.lineTo(sign * 48, 7); ctx.lineTo(sign * 8, 6);
+    ctx.closePath();
+    ctx.fillStyle = '#C2410C'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  }
+  for (const bx of [-24, 24]) {
+    // vertical fin, swept, at the end of each boom
+    ctx.beginPath();
+    ctx.moveTo(bx - 7, 6); ctx.lineTo(bx + 2, -30); ctx.lineTo(bx + 12, -28); ctx.lineTo(bx + 9, 6);
+    ctx.closePath();
+    ctx.fillStyle = '#C2410C'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,214,130,0.7)'; ctx.fillRect(bx + 1, -28, 4, 32);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+    if (mods.includes('twin-tail')) {
+      ctx.save();
+      ctx.shadowColor = '#F97316'; ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#FDBA74'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(bx - 7, 6); ctx.lineTo(bx + 2, -30); ctx.lineTo(bx + 12, -28); ctx.lineTo(bx + 9, 6); ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+    // ice on the fin leading edges
+    ctx.save(); ctx.translate(bx + 2, -28);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3, r = k % 2 ? 3 : 6;
+      if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#DBEAFE'; ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+  // ---- canopy (on top of the wings): wide brass-framed glass hump.
+  // v2.4 pass 2: WIDE + SHORT with TWO crew side by side (pilot +
+  // co-pilot) — the pass-1 tandem row of heads read as ladder rungs.
+  // v2.5: the canopy rides with the diving fuselage (rotate DIVE).
+  ctx.save(); ctx.rotate(DIVE);
+  ctx.beginPath();
+  ctx.moveTo(-20, 34); ctx.quadraticCurveTo(-24, -22, 0, -30); ctx.quadraticCurveTo(24, -22, 20, 34);
+  ctx.closePath();
+  ctx.fillStyle = '#9FD8EF'; ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.fillRect(-12, -22, 7, 44);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.strokeStyle = '#B45309'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-20, 34); ctx.quadraticCurveTo(-24, -22, 0, -30); ctx.quadraticCurveTo(24, -22, 20, 34);
+  ctx.stroke();
+  // crew heads side by side behind the glass — dark leather flying
+  // helmets seen from behind (pass 3: skin-tone faces with hair caps
+  // read as two cartoon eyes at this size).
+  const heads = Math.min(opts.crew || 3, 2);
+  for (let i = 0; i < heads; i++) {
+    const hx = i === 0 ? -9 : 9, hy = 2;
+    ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#3A2E22'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+    // brass goggle strap across the helmet
+    ctx.strokeStyle = '#B45309'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(hx - 7, hy - 1); ctx.lineTo(hx + 7, hy - 1); ctx.stroke();
+    // chin / neck sliver below the helmet
+    ctx.fillStyle = i === 0 ? '#E8B98A' : '#D9A06B';
+    ctx.beginPath(); ctx.arc(hx, hy + 6, 3.5, 0, Math.PI); ctx.fill();
+  }
+  ctx.restore(); // end dive-rotated canopy group (v2.5)
+  // ---- nose propeller (far ahead, small): spinning blur disc + ice at rim
+  // v2.5: rotate with the diving fuselage so the prop sits at the nose
+  // pointing forward-down to the lower-right.
+  ctx.save(); if (opts.dive25) ctx.rotate(DIVE); ctx.translate(0, -62);
+  // spinner cone
+  ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(0, -12); ctx.lineTo(5, 0); ctx.closePath();
+  ctx.fillStyle = '#B45309'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  const spin = t * 14;
+  for (let b = 0; b < 3; b++) {
+    ctx.save(); ctx.rotate(spin + b * 2.094);
+    ctx.beginPath(); ctx.ellipse(0, -15, 4.5, 15, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(180,83,9,0.8)'; ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fillStyle = '#7C2D12'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  // heated-prop glow ring (installed anti-ice prop)
+  if (mods.includes('anti-ice-prop')) {
+    ctx.save();
+    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.ellipse(0, 0, 30, 11, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#FDBA74'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.stroke();
+    ctx.restore();
+  }
+  // rime ice clinging to the spinning prop rim
+  for (const [ix, iy] of [[-30, 0], [30, 0], [-22, -9], [22, -9], [-22, 9], [22, 9]]) {
+    ctx.save(); ctx.translate(ix, iy);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3, r = k % 2 ? 3 : 6;
+      if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#DBEAFE'; ctx.fill();
+    ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
   ctx.restore();
 }
 

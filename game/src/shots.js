@@ -30,8 +30,13 @@ export function applyShot(g, shot, seed) {
     g.modules = [MODULES[1], MODULES[2], MODULES[3]];
     g.t = 3.1;
     g.px = 1000; g.py = 300; g.heading = -0.12; g.speed = 240; g.throttle = 0.85;
-    // v2.2 Fix 2 (climax): critical state — 24 GAL fuel, cold icing wings.
-    g.fuel = 24; g.wingTemp = 18; g.ice = 62; g.score = 3120; g.combo = 3; g.climax = true;
+    // v2.4 (chase view): peak emergency — 8 GAL fuel, wing 84% iced,
+    // throttle 96%, banking 63°. chase24 suppresses the v2.3 climax
+    // bolts in drawSnow (the near-miss bolt is drawn in drawStorm).
+    // v2.5: chase25 — diagonal diving pose, darker sky, 75% wing ice,
+    // white-cyan bolt, green-gold rings, threat peaks below left wing.
+    g.fuel = 8; g.wingTemp = -12; g.ice = 84; g.score = 3120; g.combo = 3; g.climax = true; g.chase24 = true; g.chase25 = true;
+    g.throttle = 0.96;
     g.rings[0].taken = true; g.ringIdx = 1;
     g.message = 'MAGNETIC GALE — hold the gates!'; g.msgT = 10;
     g.dialogue = 2; g.dialogueT = 10;
