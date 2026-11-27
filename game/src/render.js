@@ -411,6 +411,18 @@ export function drawStorm(ctx, g, world) {
     ctx.fillStyle = 'rgba(60,80,110,0.5)';
     ctx.beginPath(); ctx.ellipse(ccx, ccy - 12, crx * 0.8, cry * 0.55, 0, 0, Math.PI * 2); ctx.fill();
   }
+  // v3.1 (Shot 3 only, chase25): DARKEN the storm clouds at the top of
+  // the frame — a second near-black pass over the cloud masses + a top
+  // veil, so the horizon glow and the lightning flash read brighter.
+  // The red banner / topBar are drawn later, opaque, on top — untouched.
+  if (g.chase25) {
+    ctx.fillStyle = 'rgba(2,5,12,0.22)';
+    ctx.fillRect(0, 0, 1280, 200);
+    for (const [ccx, ccy, crx, cry] of [[180, 118, 230, 52], [1100, 108, 250, 58], [480, 78, 180, 38], [880, 62, 150, 32]]) {
+      ctx.fillStyle = 'rgba(6,10,20,0.55)';
+      ctx.beginPath(); ctx.ellipse(ccx, ccy, crx, cry, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
   drawWindStreaks(ctx, g, 30); // v2.2: denser speed lines for the climax
   // v2.3: fast storm wind lines — v2.4 angles them diagonally down-left
   // so the gale reads as a crosswind shoving the plane off the gates.
@@ -423,6 +435,30 @@ export function drawStorm(ctx, g, world) {
     ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 190, wy + 34); ctx.stroke();
   }
   ctx.restore();
+  // v3.1 (Shot 3 only, chase25): GLOWING red-orange horizon behind the
+  // ice mountains — a vertical sunset band + a tight elliptical core at
+  // the vanishing point, additive ('lighter'), drawn BEFORE the canyon
+  // so the walls and threat peaks occlude it and it shows only through
+  // the gaps. Never covers a peak or the plane (both drawn after).
+  if (g.chase25) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const hz = ctx.createLinearGradient(0, 230, 0, 480);
+    hz.addColorStop(0, 'rgba(255,90,30,0)');
+    hz.addColorStop(0.28, 'rgba(255,110,40,0.42)');
+    hz.addColorStop(0.55, 'rgba(255,60,20,0.30)');
+    hz.addColorStop(1, 'rgba(255,60,20,0)');
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, 230, 1280, 250);
+    ctx.translate(640, 305); ctx.scale(2.2, 0.55);
+    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 200);
+    core.addColorStop(0, 'rgba(255,130,50,0.55)');
+    core.addColorStop(0.6, 'rgba(255,80,30,0.25)');
+    core.addColorStop(1, 'rgba(255,80,30,0)');
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(0, 0, 200, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   drawCanyon3D(ctx); // v2.4: perspective ice canyon, walls -> vanishing point
   if (g.chase25) {
     // v2.5: sharp jagged ice peaks raised RIGHT BELOW the diving left
@@ -549,6 +585,24 @@ export function drawStorm(ctx, g, world) {
   // (banner bottom y140 + 10, dialogue top y470 − 10) the clearances
   // are ~11px each side (measured from the render). Live storm play
   // keeps (640, 305), unscaled.
+  // v3.1 (Shot 3 only, chase25): LIGHTNING FLASH on the plane silhouette
+  // — a soft white-cyan halo behind the aircraft (drawn BEFORE the
+  // plane, so the plane itself stays crisp and the flash reads as
+  // backlight). The bolt trace itself is untouched (near-miss geometry
+  // unchanged). Radius capped so the faint edge stays well clear of the
+  // banner (bottom y140) and dialogue (top y470); the banner is opaque
+  // and drawn later in any case.
+  if (g.chase25) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const flash = ctx.createRadialGradient(640, 298.5, 10, 640, 298.5, 190);
+    flash.addColorStop(0, 'rgba(224,242,254,0.30)');
+    flash.addColorStop(0.5, 'rgba(103,232,249,0.14)');
+    flash.addColorStop(1, 'rgba(103,232,249,0)');
+    ctx.fillStyle = flash;
+    ctx.beginPath(); ctx.arc(640, 298.5, 190, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   drawChaseAircraft(ctx, 640, g.chase25 ? 298.5 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
   // v2.1: orange engine sparks from the propeller (deterministic, fixed
   // shot time) — v2.4 re-centred on the chase-view nose prop (640, 243).

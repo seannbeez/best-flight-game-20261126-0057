@@ -359,6 +359,18 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   ctx.moveTo(-30, 92); ctx.lineTo(-18, 44); ctx.lineTo(-10, -20); ctx.lineTo(-6, -62);
   ctx.lineTo(6, -62); ctx.lineTo(10, -20); ctx.lineTo(18, 44); ctx.lineTo(30, 92);
   ctx.closePath(); ctx.stroke();
+  // v3.1 (dive25 only): GOLD RIM-LIGHT on the fuselage edge facing the
+  // bolt (local -x = screen up-right after the 135° dive) — the
+  // lightning catch that separates the brass body from the dark sky.
+  if (opts.dive25) {
+    ctx.save();
+    ctx.shadowColor = '#FBBF24'; ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-6, -62); ctx.lineTo(-10, -20); ctx.lineTo(-18, 44); ctx.lineTo(-30, 92);
+    ctx.stroke();
+    ctx.restore();
+  }
   // panel lines across the fuselage
   ctx.strokeStyle = 'rgba(28,25,23,0.45)'; ctx.lineWidth = 1.5;
   for (const py of [-16, 12, 40]) {
@@ -389,13 +401,40 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   }
   // heater exhaust flame at the tail (storm / heat on) — small, at viewer
   if (opts.storm) {
-    ctx.save(); ctx.translate(0, 96);
-    ctx.shadowColor = '#F97316'; ctx.shadowBlur = 10;
-    ctx.fillStyle = '#F97316';
-    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.quadraticCurveTo(0, 14, 6, 0); ctx.quadraticCurveTo(0, 5, -6, 0); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FDE68A';
-    ctx.beginPath(); ctx.moveTo(-3, 0); ctx.quadraticCurveTo(0, 7, 3, 0); ctx.quadraticCurveTo(0, 3, -3, 0); ctx.closePath(); ctx.fill();
-    ctx.restore();
+    if (opts.dive25) {
+      // v3.1 (dive25 only): AFTERBURNER — a big 3-layer orange-red flame
+      // cone streaming back from the tail (local +y = tail direction,
+      // up-left on screen after the 135° dive, away from the plane and
+      // clear of the [H] chip, bolt and rings). Screen tip ~(528,186),
+      // well inside the y150–y460 free band — no clearance impact.
+      ctx.save(); ctx.translate(0, 92);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const abGlow = ctx.createRadialGradient(0, 26, 2, 0, 26, 34);
+      abGlow.addColorStop(0, 'rgba(249,115,22,0.45)');
+      abGlow.addColorStop(1, 'rgba(249,115,22,0)');
+      ctx.fillStyle = abGlow;
+      ctx.beginPath(); ctx.arc(0, 26, 34, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.shadowColor = '#F97316'; ctx.shadowBlur = 16;
+      ctx.fillStyle = '#EA580C';
+      ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-13, 30, 0, 58); ctx.quadraticCurveTo(13, 30, 10, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#F97316';
+      ctx.beginPath(); ctx.moveTo(-7, 0); ctx.quadraticCurveTo(-8, 20, 0, 40); ctx.quadraticCurveTo(8, 20, 7, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#FDE68A';
+      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.quadraticCurveTo(-4, 12, 0, 24); ctx.quadraticCurveTo(4, 12, 4, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.save(); ctx.translate(0, 96);
+      ctx.shadowColor = '#F97316'; ctx.shadowBlur = 10;
+      ctx.fillStyle = '#F97316';
+      ctx.beginPath(); ctx.moveTo(-6, 0); ctx.quadraticCurveTo(0, 14, 6, 0); ctx.quadraticCurveTo(0, 5, -6, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#FDE68A';
+      ctx.beginPath(); ctx.moveTo(-3, 0); ctx.quadraticCurveTo(0, 7, 3, 0); ctx.quadraticCurveTo(0, 3, -3, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
   }
   ctx.restore(); // end dive-rotated fuselage group (v2.5; no-op when DIVE 0)
   // ---- wings (rolled with the bank about the wing root, local (0, 5))
@@ -415,6 +454,18 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
     ctx.fillStyle = 'rgba(120,53,15,0.55)'; ctx.fillRect(sign > 0 ? 12 : -150, 10, 138, 10);
     ctx.fillStyle = opts.dive25 ? 'rgba(255,232,175,0.95)' : 'rgba(255,224,160,0.9)'; ctx.fillRect(sign > 0 ? 12 : -148, -28, 136, 7);
     ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
+    // v3.1 (dive25 only): GOLD RIM-LIGHT on the rising right wing's
+    // leading edge + tip — the edge facing the near-miss bolt, so the
+    // copper wing keeps its edge against the white-cyan flash.
+    if (opts.dive25 && sign > 0) {
+      ctx.save();
+      ctx.shadowColor = '#FBBF24'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(12, -23); ctx.lineTo(150, -30); ctx.lineTo(165, -12); ctx.lineTo(150, 16);
+      ctx.stroke();
+      ctx.restore();
+    }
     // wing ribs
     ctx.strokeStyle = 'rgba(28,25,23,0.5)'; ctx.lineWidth = 1.5;
     for (let i = 0; i < 4; i++) {
@@ -581,6 +632,17 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   ctx.beginPath();
   ctx.moveTo(-20, 34); ctx.quadraticCurveTo(-24, -22, 0, -30); ctx.quadraticCurveTo(24, -22, 20, 34);
   ctx.stroke();
+  // v3.1 (dive25 only): GOLD RIM-LIGHT on the canopy edge facing the
+  // bolt (local -x = screen up-right after the 135° dive).
+  if (opts.dive25) {
+    ctx.save();
+    ctx.shadowColor = '#FBBF24'; ctx.shadowBlur = 6;
+    ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-20, 34); ctx.quadraticCurveTo(-24, -22, 0, -30);
+    ctx.stroke();
+    ctx.restore();
+  }
   // crew heads side by side behind the glass — dark leather flying
   // helmets seen from behind (pass 3: skin-tone faces with hair caps
   // read as two cartoon eyes at this size).
@@ -634,6 +696,15 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   if (opts.dive25) {
     ctx.fillStyle = '#FDE68A';
     ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // v3.1 (dive25 only): GOLD RIM-LIGHT arc on the prop-disc edge facing
+  // the bolt (local -x = screen up-right after the 135° dive).
+  if (opts.dive25) {
+    ctx.save();
+    ctx.shadowColor = '#FBBF24'; ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(0, 0, 30, Math.PI * 0.72, Math.PI * 1.28); ctx.stroke();
+    ctx.restore();
   }
   // heated-prop glow ring (installed anti-ice prop)
   if (mods.includes('anti-ice-prop')) {
