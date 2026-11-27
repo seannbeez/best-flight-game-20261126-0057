@@ -439,6 +439,19 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   ctx.beginPath();
   ctx.moveTo(-165, -14); ctx.lineTo(iceRoot, -28); ctx.lineTo(iceRoot, 24); ctx.lineTo(-165, 18);
   ctx.closePath(); ctx.stroke();
+  // v2.6 (dive25 only): bright cyan-white rim light on the slab's outer
+  // edges (tip + lower edge facing the threat peaks) — the slab must
+  // read as a separate bright mass from the blue-grey peak below it
+  // at 300px. The v2.4 fallback keeps its plain outline.
+  if (opts.dive25) {
+    ctx.save();
+    ctx.shadowColor = '#67E8F9'; ctx.shadowBlur = 6;
+    ctx.strokeStyle = '#E0F2FE'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-165, -14); ctx.lineTo(-165, 18); ctx.lineTo(iceRoot, 24);
+    ctx.stroke();
+    ctx.restore();
+  }
   // jagged crystal teeth along the iced leading edge
   ctx.fillStyle = '#F4FAFF';
   for (let k = 0; k < 6; k++) {
@@ -584,16 +597,36 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   // spinner cone
   ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(0, -12); ctx.lineTo(5, 0); ctx.closePath();
   ctx.fillStyle = '#B45309'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  // v2.6 (dive25 only): bright copper-gold glint on the spinner cone —
+  // the nose must not read as a small dark blob against the night sky.
+  if (opts.dive25) {
+    ctx.save();
+    ctx.shadowColor = '#FBBF24'; ctx.shadowBlur = 6;
+    ctx.fillStyle = '#FEF3C7';
+    ctx.beginPath(); ctx.moveTo(-1.5, -1); ctx.lineTo(0, -11); ctx.lineTo(1.5, -1); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
   const spin = t * 14;
   for (let b = 0; b < 3; b++) {
     ctx.save(); ctx.rotate(spin + b * 2.094);
     ctx.beginPath(); ctx.ellipse(0, -15, 4.5, 15, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(180,83,9,0.8)'; ctx.fill();
+    // v2.6 (dive25 only): bright copper-gold blades + gold spoke — the
+    // prop must read as crossing blades over dark sky, not a dark blob.
+    ctx.fillStyle = opts.dive25 ? '#FBBF24' : 'rgba(180,83,9,0.8)'; ctx.fill();
     ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.stroke();
+    if (opts.dive25) {
+      ctx.strokeStyle = '#FDE68A'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, -14); ctx.stroke();
+    }
     ctx.restore();
   }
   ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fillStyle = '#7C2D12'; ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  // v2.6 (dive25 only): bright hub dot — the prop centre glints.
+  if (opts.dive25) {
+    ctx.fillStyle = '#FDE68A';
+    ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
   // heated-prop glow ring (installed anti-ice prop)
   if (mods.includes('anti-ice-prop')) {
     ctx.save();

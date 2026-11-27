@@ -429,6 +429,10 @@ export function drawStorm(ctx, g, world) {
     // wing (tip ~536,428) — as if metres from collision. Drawn in the
     // canyon pass, before the plane, so the wing overlaps them; bases
     // run behind the dialogue box (y 470), apexes stay visible above it.
+    // v2.6: peak 2 (directly below the left wingtip) lowered 15px
+    // (436→451) + the wing-ice rim light in art.js — the ice slab must
+    // not merge with the peak at 300px. Gap wingtip→apex ~18px→~28px
+    // diagonal; apex (451) stays 19px above the dialogue box (470).
     const threatPeak = (x0, ax, ay, x1) => {
       ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.closePath();
       ctx.fillStyle = '#5B7FA0'; ctx.fill();
@@ -440,7 +444,7 @@ export function drawStorm(ctx, g, world) {
       ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.stroke();
     };
     threatPeak(420, 465, 448, 520);
-    threatPeak(480, 520, 436, 580);
+    threatPeak(480, 520, 451, 580);
     threatPeak(555, 595, 450, 655);
   }
   // v2.4: 3 glowing green-cyan aurora gate rings in perspective, receding
