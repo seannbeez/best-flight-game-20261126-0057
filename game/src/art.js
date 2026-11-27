@@ -319,6 +319,14 @@ export function drawChaseAircraft(ctx, cx, cy, bank, t, opts = {}) {
   const mods = opts.mods || [];
   ctx.save();
   ctx.translate(cx, cy);
+  // v3.0 (Shot 3 only, dive25): scale 1.06 about the plane centre (cx,cy)
+  // — uniform, so pose/position/rotation are untouched; line widths and
+  // shadows scale with the aircraft. Non-dive (live storm play) unscaled.
+  // NOTE: 1.07 was built first and MEASURED from the render: strong-edge
+  // clearances exactly 10/10px (zero margin — rendered bbox 310px vs the
+  // 310px band), faint halo 9/7px. 1.06 is the largest scale with real
+  // verified margin (~11px each side); the 1% difference is invisible.
+  if (opts.dive25) ctx.scale(1.06, 1.06);
   // v2.5: DIAGONAL DIVING pose — the fuselage group rotates 135° so the
   // nose + copper props point forward-DOWN to the lower-right over dark
   // sky (never a vertical column stacked on the peaks); the wings keep

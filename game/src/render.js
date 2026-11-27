@@ -443,8 +443,12 @@ export function drawStorm(ctx, g, world) {
       ctx.strokeStyle = INK; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x0, 560); ctx.lineTo(ax, ay); ctx.lineTo(x1, 560); ctx.stroke();
     };
+    // v3.0: peak 2 moved left+down (apex 520,451 -> 505,455) — the +7%
+    // plane's iced left wingtip drops to ~(527,439), only ~13px from
+    // the old apex; the new apex sits ~27px diagonal from the tip and
+    // 15px above the dialogue box, clearly below the wing, no overlap.
     threatPeak(420, 465, 448, 520);
-    threatPeak(480, 520, 451, 580);
+    threatPeak(480, 505, 455, 580);
     threatPeak(555, 595, 450, 655);
   }
   // v2.4: 3 glowing green-cyan aurora gate rings in perspective, receding
@@ -477,12 +481,16 @@ export function drawStorm(ctx, g, world) {
     const flashCols = g.chase25
       ? ['rgba(255,255,255,0.6)', 'rgba(103,232,249,0.30)', 'rgba(103,232,249,0)']
       : ['rgba(255,255,255,0.55)', 'rgba(217,70,239,0.28)', 'rgba(217,70,239,0)'];
-    const flash = ctx.createRadialGradient(772, 70, 4, 772, 70, 110);
+    // v3.0: bolt shifted +15px right — the +6% plane's right wingtip
+    // moved to ~(730,153), so the old trace (x~734 at y150) would sit
+    // on the tip. New trace passes ~15px right of the tip (core edge
+    // ~10px clear): near-miss, never touching or overlapping the wing.
+    const flash = ctx.createRadialGradient(787, 70, 4, 787, 70, 110);
     flash.addColorStop(0, flashCols[0]);
     flash.addColorStop(0.5, flashCols[1]);
     flash.addColorStop(1, flashCols[2]);
     ctx.fillStyle = flash;
-    ctx.beginPath(); ctx.arc(772, 70, 110, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(787, 70, 110, 0, Math.PI * 2); ctx.fill();
     const boltTrace = (pts, colors) => {
       for (const [color, lw] of colors) {
         ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
@@ -492,27 +500,27 @@ export function drawStorm(ctx, g, world) {
       }
     };
     const main = g.chase25
-      ? [[770, 60], [752, 96], [740, 122], [734, 150], [736, 178], [730, 206], [738, 240], [730, 276], [738, 310], [730, 344]]
+      ? [[785, 60], [767, 96], [755, 122], [749, 150], [751, 178], [745, 206], [753, 240], [745, 276], [753, 310], [745, 344]]
       : [[772, 64], [756, 96], [744, 122], [738, 150], [740, 178], [732, 206], [742, 240], [730, 276], [738, 310], [730, 344]];
     ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 20;
     boltTrace(main, boltCols);
     ctx.restore();
     if (g.chase25) {
       // flash AT the wing edge — the near-miss reads as a strike about
-      // to land on the right wingtip.
-      const edge = ctx.createRadialGradient(732, 156, 2, 732, 156, 42);
+      // to land on the right wingtip. v3.0: tip moved to ~(730,153).
+      const edge = ctx.createRadialGradient(730, 153, 2, 730, 153, 42);
       edge.addColorStop(0, 'rgba(255,255,255,0.85)');
       edge.addColorStop(0.5, 'rgba(103,232,249,0.35)');
       edge.addColorStop(1, 'rgba(103,232,249,0)');
       ctx.fillStyle = edge;
-      ctx.beginPath(); ctx.arc(732, 156, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(730, 153, 42, 0, Math.PI * 2); ctx.fill();
     }
     // branches fork right, away from the plane and the gate rings
     ctx.save(); ctx.shadowColor = boltShadow; ctx.shadowBlur = 10;
     if (g.chase25) {
-      boltTrace([[740, 122], [768, 138], [796, 150]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
-      boltTrace([[736, 178], [764, 194], [792, 208]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
-      boltTrace([[730, 206], [754, 222], [778, 238]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[755, 122], [783, 138], [811, 150]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[751, 178], [779, 194], [807, 208]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
+      boltTrace([[745, 206], [769, 222], [793, 238]], [['rgba(103,232,249,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
     } else {
       boltTrace([[744, 122], [772, 138], [800, 150]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
       boltTrace([[740, 178], [768, 194], [796, 208]], [['rgba(34,211,238,0.85)', 4], ['rgba(255,255,255,0.9)', 1.5]]);
@@ -536,11 +544,17 @@ export function drawStorm(ctx, g, world) {
   // sky; wings keep a steep -55° tilt, crossing the fuselage at ~70°.
   // Centre (640, 300): right tip ~(725,158), left (iced) tip ~(536,428),
   // nose prop ~(684,344), tail ~(575,235) — 0% clipped by panels/box.
-  drawChaseAircraft(ctx, 640, g.chase25 ? 300 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
+  // v3.0: plane centre (640, 298.5) — the +6% scale (art.js, about the
+  // centre) makes the bbox ~307px tall; centred in the y150–y460 band
+  // (banner bottom y140 + 10, dialogue top y470 − 10) the clearances
+  // are ~11px each side (measured from the render). Live storm play
+  // keeps (640, 305), unscaled.
+  drawChaseAircraft(ctx, 640, g.chase25 ? 298.5 : 305, -1.10, g.t, { crew: 3, mods: g.modules.map((m) => m.id), iced: true, storm: true, climax: true, dive25: !!g.chase25 });
   // v2.1: orange engine sparks from the propeller (deterministic, fixed
   // shot time) — v2.4 re-centred on the chase-view nose prop (640, 243).
   // v2.5: nose prop moved to (684, 344) with the diagonal dive.
-  const [ncx, ncy] = g.chase25 ? [684, 344] : [640, 252];
+  // v3.0: prop centre scales to ~(686,345) with the +6% plane.
+  const [ncx, ncy] = g.chase25 ? [686, 345] : [640, 252];
   for (let i = 0; i < 10; i++) {
     const px = ncx + Math.sin(i * 2.7 + g.t * 3) * 52, py = ncy + Math.cos(i * 1.9 + g.t * 2) * 26;
     ctx.fillStyle = i % 2 ? '#FDBA74' : '#FDE68A';
@@ -548,8 +562,9 @@ export function drawStorm(ctx, g, world) {
   }
   // exhaust smoke puffs drifting below the tail (fade before y 470)
   // v2.5: tail moved to ~(575,235) — smoke trails up-left behind it.
+  // v3.0: tail scales to ~(571,230); smoke shifted (−4,−6) to follow.
   const smokePts = g.chase25
-    ? [[566, 226], [556, 216], [548, 208], [540, 200]]
+    ? [[562, 220], [552, 210], [544, 202], [536, 194]]
     : [[640, 430], [630, 440], [648, 448], [638, 456]];
   for (let i = 0; i < 4; i++) {
     const sx = smokePts[i][0], sy = smokePts[i][1];
@@ -576,6 +591,10 @@ export function drawStorm(ctx, g, world) {
   ctx.beginPath(); ctx.moveTo(hx + 172, hy + 15); ctx.lineTo(lx, ly); ctx.stroke();
   ctx.restore();
   drawSnow(ctx, g, world, true);
+  // v3.0 (Shot 3 only, chase25): side panels REMOVED — the storm arena
+  // opens full width left-to-right. Live storm play (non-chase25) keeps
+  // both panels; Shots 1/2/4 never call drawStorm, so they are untouched.
+  if (!g.chase25) {
   // solid cream side panels with dark frames
   panel(ctx, 12, 92, 220, 260, PAL.cream);
   text(ctx, 'MAGNETIC GALE', 26, 122, 18, '#7C2D12');
@@ -596,6 +615,7 @@ export function drawStorm(ctx, g, world) {
     label(ctx, c.name, 1122, y - 4, 12, '#1C1917');
     label(ctx, c.role.toUpperCase(), 1122, y + 12, 10, '#7C2D12');
   });
+  }
   topBar(ctx, g);
   dialogueBox(ctx, g);
   bottomInstruments(ctx, g);

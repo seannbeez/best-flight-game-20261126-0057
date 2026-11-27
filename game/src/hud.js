@@ -187,8 +187,19 @@ export function messageBanner(ctx, g) {
   if (g.msgT > 0 && g.message) {
     ctx.save();
     ctx.globalAlpha = Math.min(1, g.msgT);
-    darkPanel(ctx, 340, 100, 600, 40);
-    label(ctx, g.message, 640, 126, 15, '#F5EFE6', 'center');
+    if (g.chase25) {
+      // v3.0 (Shot 3 only): CRITICAL red banner — solid red panel with
+      // pale-red frame, white text. Same geometry (340,100,600,40) as
+      // the dark banner, so no overlap change with topBar or the plane.
+      ctx.fillStyle = '#B91C1C';
+      ctx.fillRect(340, 100, 600, 40);
+      ctx.strokeStyle = '#FCA5A5'; ctx.lineWidth = 2;
+      ctx.strokeRect(340, 100, 600, 40);
+      label(ctx, g.message, 640, 126, 15, '#FFFFFF', 'center');
+    } else {
+      darkPanel(ctx, 340, 100, 600, 40);
+      label(ctx, g.message, 640, 126, 15, '#F5EFE6', 'center');
+    }
     ctx.restore();
   }
 }

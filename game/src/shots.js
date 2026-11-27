@@ -38,7 +38,7 @@ export function applyShot(g, shot, seed) {
     g.fuel = 8; g.wingTemp = -12; g.ice = 84; g.score = 3120; g.combo = 3; g.climax = true; g.chase24 = true; g.chase25 = true;
     g.throttle = 0.96;
     g.rings[0].taken = true; g.ringIdx = 1;
-    g.message = 'MAGNETIC GALE — hold the gates!'; g.msgT = 10;
+    g.message = 'STALL & ICE LOCK — PULSE [H] HEAT NOW!'; g.msgT = 10;
     g.dialogue = 2; g.dialogueT = 10;
   } else if (shot === 'start') {
     // v2.1: the full-bleed title poster is its own deterministic state,
